@@ -235,6 +235,7 @@ function compareUaResponses(browserResult, botResult) {
 }
 
 app.post('/analyze', async (req, res) => {
+  try {
   let { url } = req.body;
 
   if (!url || typeof url !== 'string' || url.trim() === '') {
@@ -400,6 +401,12 @@ app.post('/analyze', async (req, res) => {
   }
 
   res.json(result);
+  } catch (err) {
+    console.error('Unhandled route error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error: ' + err.message });
+    }
+  }
 });
 
 app.listen(PORT, () => {
