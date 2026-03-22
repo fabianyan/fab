@@ -412,3 +412,11 @@ app.post('/analyze', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`WAF Detector running at http://localhost:${PORT}`);
 });
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (server kept alive):', err.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection (server kept alive):', reason);
+});
