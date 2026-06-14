@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Cup 2026: Saturday June 13 Results & Highlights</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;0,900;1,400&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #c0392b;
+      --dark: #1a1a1a;
+      --mid: #333;
+      --muted: #666;
+      --light-border: #e0e0e0;
+      --bg: #f5f5f0;
+      --white: #fff;
+      --accent: #2c3e50;
+    }
+
+    body {
+      font-family: 'Source Sans 3', sans-serif;
+      background: var(--bg);
+      color: var(--dark);
+      font-size: 17px;
+      line-height: 1.6;
+    }
+
+    /* ── TOP BAR ── */
+    .top-bar {
+      background: var(--dark);
+      color: #aaa;
+      font-size: 12px;
+      text-align: center;
+      padding: 6px 16px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--white);
+      border-bottom: 3px solid var(--red);
+      padding: 0 24px;
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+    }
+    .logo {
+      font-family: 'Merriweather', serif;
+      font-weight: 900;
+      font-size: 26px;
+      color: var(--dark);
+      text-decoration: none;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--red); }
+    nav { display: flex; gap: 24px; }
+    nav a {
+      text-decoration: none;
+      color: var(--mid);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    nav a:hover { color: var(--red); }
+
+    /* ── BREADCRUMB ── */
+    .breadcrumb {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 10px 24px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+    .breadcrumb a { color: var(--muted); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--red); }
+    .breadcrumb span { margin: 0 6px; }
+
+    /* ── LAYOUT ── */
+    .page-wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 60px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 40px;
+      align-items: start;
+    }
+
+    /* ── ARTICLE ── */
+    article { background: var(--white); padding: 36px 40px; border-radius: 4px; }
+
+    .category-tag {
+      display: inline-block;
+      background: var(--red);
+      color: var(--white);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 4px 10px;
+      border-radius: 2px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-family: 'Merriweather', serif;
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1.25;
+      color: var(--dark);
+      margin-bottom: 16px;
+    }
+
+    .deck {
+      font-size: 18px;
+      color: var(--mid);
+      line-height: 1.5;
+      margin-bottom: 20px;
+      font-weight: 400;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      border-top: 1px solid var(--light-border);
+      border-bottom: 1px solid var(--light-border);
+      padding: 10px 0;
+      margin-bottom: 28px;
+    }
+    .meta .author { font-weight: 700; color: var(--dark); }
+    .meta .dot { color: #ccc; }
+
+    /* ── HERO IMAGE ── */
+    .hero-img {
+      width: 100%;
+      height: 420px;
+      object-fit: cover;
+      border-radius: 4px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .img-caption {
+      font-size: 12.5px;
+      color: var(--muted);
+      font-style: italic;
+      margin-bottom: 30px;
+    }
+
+    /* ── BODY TEXT ── */
+    .article-body p {
+      font-family: 'Merriweather', serif;
+      font-size: 16px;
+      line-height: 1.85;
+      color: #2d2d2d;
+      margin-bottom: 22px;
+    }
+
+    /* ── MATCH CARDS ── */
+    .match-card {
+      border: 1px solid var(--light-border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 32px 0;
+    }
+    .match-img-wrap { position: relative; }
+    .match-img {
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+      display: block;
+    }
+    .match-score-badge {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.82));
+      padding: 28px 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .team {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .team img { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); object-fit: cover; background: #fff; }
+    .team-name { color: #fff; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .score-box {
+      background: var(--white);
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-family: 'Merriweather', serif;
+      font-size: 28px;
+      font-weight: 900;
+      color: var(--dark);
+      line-height: 1;
+    }
+    .match-body { padding: 20px 24px; }
+    .match-group { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--red); margin-bottom: 8px; }
+    .match-title {
+      font-family: 'Merriweather', serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .match-body p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #444;
+      margin-bottom: 10px;
+    }
+    .match-body p:last-child { margin-bottom: 0; }
+    .scorer-line {
+      background: #f9f9f6;
+      border-left: 3px solid var(--red);
+      padding: 8px 14px;
+      font-size: 13.5px;
+      color: var(--mid);
+      border-radius: 0 4px 4px 0;
+      margin-top: 12px;
+    }
+    .scorer-line strong { color: var(--dark); }
+
+    /* ── PULL QUOTE ── */
+    blockquote {
+      border-left: 4px solid var(--red);
+      margin: 30px 0;
+      padding: 14px 24px;
+      font-family: 'Merriweather', serif;
+      font-size: 18px;
+      font-style: italic;
+      color: var(--accent);
+      background: #fafafa;
+    }
+
+    /* ── SIDEBAR ── */
+    aside { display: flex; flex-direction: column; gap: 24px; }
+
+    .sidebar-widget {
+      background: var(--white);
+      border-radius: 4px;
+      padding: 22px 20px;
+    }
+    .widget-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--red);
+      border-bottom: 2px solid var(--light-border);
+      padding-bottom: 10px;
+      margin-bottom: 16px;
+    }
+
+    .standings-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .standings-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 4px 6px 8px;
+    }
+    .standings-table td { padding: 7px 6px; border-bottom: 1px solid #f0f0f0; }
+    .standings-table tr:last-child td { border-bottom: none; }
+    .standings-table .flag { font-size: 16px; margin-right: 4px; }
+    .pts { font-weight: 700; color: var(--dark); }
+    .group-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--white);
+      background: var(--accent);
+      padding: 3px 8px;
+      margin: 10px 0 6px;
+      display: inline-block;
+      border-radius: 2px;
+    }
+
+    .related-item { display: flex; gap: 12px; margin-bottom: 16px; }
+    .related-item:last-child { margin-bottom: 0; }
+    .related-thumb {
+      width: 70px; height: 50px;
+      border-radius: 3px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .related-item p { font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--dark); }
+    .related-item time { font-size: 11.5px; color: var(--muted); margin-top: 4px; display: block; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--dark);
+      color: #aaa;
+      padding: 30px 24px;
+      font-size: 13px;
+      text-align: center;
+    }
+    footer a { color: #aaa; text-decoration: none; margin: 0 10px; }
+    footer a:hover { color: var(--white); }
+
+    @media (max-width: 768px) {
+      .page-wrap { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+      article { padding: 24px 20px; }
+      .hero-img { height: 240px; }
+      nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">FIFA WORLD CUP 2026™ &nbsp;·&nbsp; Canada · Mexico · United States &nbsp;·&nbsp; Full Coverage</div>
+
+<header>
+  <div class="header-inner">
+    <a href="#" class="logo">World<span>Cup</span>Daily</a>
+    <nav>
+      <a href="#">News</a>
+      <a href="#">Results</a>
+      <a href="#">Standings</a>
+      <a href="#">Schedule</a>
+      <a href="#">Teams</a>
+      <a href="#">Highlights</a>
+    </nav>
+  </div>
+</header>
+
+<div class="breadcrumb">
+  <a href="#">Home</a><span>›</span>
+  <a href="#">News</a><span>›</span>
+  <a href="#">Match Reports</a><span>›</span>
+  June 13 Results
+</div>
+
+<div class="page-wrap">
+
+  <!-- MAIN ARTICLE -->
+  <main>
+    <article>
+      <div class="category-tag">Match Reports</div>
+
+      <h1>World Cup 2026: Brazil Draw with Morocco, Australia Stun Turkey as Scotland Claim Historic Win</h1>
+
+      <p class="deck">Five-time champions Brazil were held to a 1-1 stalemate, the USA dominated Paraguay, and Scotland ended a 36-year World Cup win drought in an action-packed Saturday of Group Stage football.</p>
+
+      <div class="meta">
+        <span class="author">WorldCupDaily Staff</span>
+        <span class="dot">·</span>
+        <span>Saturday, June 13, 2026</span>
+        <span class="dot">·</span>
+        <span>5 min read</span>
+      </div>
+
+      <img
+        src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1200&q=80"
+        alt="FIFA World Cup 2026 stadium atmosphere"
+        class="hero-img"
+      />
+      <p class="img-caption">Packed stadiums across the United States delivered an electric atmosphere on a memorable Saturday of World Cup football. (Getty Images)</p>
+
+      <div class="article-body">
+        <p>Saturday, June 13, delivered everything a World Cup fan could ask for: a blockbuster draw between heavyweights Brazil and Morocco, a major upset as Australia dismantled Turkey, Scotland's first World Cup win in 36 years, and a last-gasp equalizer that denied Switzerland in the opening game of the day. Here is everything that happened.</p>
+      </div>
+
+      <!-- MATCH 1: Qatar vs Switzerland -->
+      <div class="match-card">
+        <div class="match-img-wrap">
+          <img
+            src="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=900&q=80"
+            alt="Qatar vs Switzerland World Cup 2026"
+            class="match-img"
+          />
+          <div class="match-score-badge">
+            <div class="team">
+              <img src="https://flagcdn.com/w80/qa.png" alt="Qatar flag" />
+              <span class="team-name">Qatar</span>
+            </div>
+            <div class="score-box">1 – 1</div>
+            <div class="team">
+              <img src="https://flagcdn.com/w80/ch.png" alt="Switzerland flag" />
+              <span class="team-name">Switzerland</span>
+            </div>
+          </div>
+        </div>
+        <div class="match-body">
+          <div class="match-group">Group B · Lumen Field, Seattle</div>
+          <div class="match-title">Qatar Rescue Dramatic Draw Against Switzerland</div>
+          <p>Switzerland appeared to be heading for a comfortable opening win when they went ahead in the first half, controlling possession and limiting Qatar's attacking threat. But the host nation of the 2022 World Cup refused to be put to the sword.</p>
+          <p>Deep into stoppage time, with Switzerland's players already celebrating a victory, Qatar captain <strong>Boualem Khoukhi</strong> rose highest from a corner to head home a stunning 90+5 equaliser — silencing the Swiss and sending the Qatari supporters in the stadium into raptures.</p>
+          <div class="scorer-line">⚽ <strong>Boualem Khoukhi</strong> (QAT) — 90+5' &nbsp;|&nbsp; Switzerland scorer (TBC)</div>
+        </div>
+      </div>
+
+      <!-- MATCH 2: Brazil vs Morocco -->
+      <div class="match-card">
+        <div class="match-img-wrap">
+          <img
+            src="https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?w=900&q=80"
+            alt="Brazil vs Morocco World Cup 2026"
+            class="match-img"
+          />
+          <div class="match-score-badge">
+            <div class="team">
+              <img src="https://flagcdn.com/w80/br.png" alt="Brazil flag" />
+              <span class="team-name">Brazil</span>
+            </div>
+            <div class="score-box">1 – 1</div>
+            <div class="team">
+              <img src="https://flagcdn.com/w80/ma.png" alt="Morocco flag" />
+              <span class="team-name">Morocco</span>
+            </div>
+          </div>
+        </div>
+        <div class="match-body">
+          <div class="match-group">Group C · SoFi Stadium, Los Angeles</div>
+          <div class="match-title">Vinícius Rescues Brazil After Saibari Stunner</div>
+          <p>In the most-anticipated match of the day, Morocco made a stunning statement on the world stage. The Atlas Lions — semi-finalists in Qatar four years ago and widely tipped as one of the tournament's dark horses — took the game to Brazil from the first whistle.</p>
+          <p><strong>Ismael Saibari</strong> capitalised on hesitant defending to put Morocco ahead in the 21st minute, sparking wild celebrations among their passionate supporters. Brazil, five-time world champions, were rattled — but not for long. Star forward <strong>Vinícius Júnior</strong> struck back with a clinical finish in the 32nd minute to level, and neither side could find a winner in a match that had the crowd on its feet throughout.</p>
+          <blockquote>"Morocco proved once again they belong at the very top of the game. This draw flatters no one — both teams deserved more."</blockquote>
+          <div class="scorer-line">⚽ <strong>Ismael Saibari</strong> (MAR) — 21' &nbsp;|&nbsp; ⚽ <strong>Vinícius Júnior</strong> (BRA) — 32'</div>
+        </div>
+      </div>
+
+      <!-- MATCH 3: Haiti vs Scotland -->
+      <div class="match-card">
+        <div class="match-img-wrap">
+          <img
+            src="https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=900&q=80"
+            alt="Scotland vs Haiti World Cup 2026"
+            class="match-img"
+          />
+          <div class="match-score-badge">
+            <div class="team">
+              <img src="https://flagcdn.com/w80/ht.png" alt="Haiti flag" />
+              <span class="team-name">Haiti</span>
+            </div>
+            <div class="score-box">0 – 1</div>
+            <div class="team">
+              <img src="https://flagcdn.com/w80/gb-sct.png" alt="Scotland flag" />
+              <span class="team-name">Scotland</span>
+            </div>
+          </div>
+        </div>
+        <div class="match-body">
+          <div class="match-group">Group C · Gillette Stadium, Boston</div>
+          <div class="match-title">McGinn Goal Ends Scotland's 36-Year World Cup Win Drought</div>
+          <p>Scenes of utter jubilation greeted the final whistle as Scotland recorded their first World Cup victory since 1990, when they beat Sweden 2-1. The Tartan Army, returning to the tournament for the first time since the 1998 World Cup in France, made their mark on US soil.</p>
+          <p>Aston Villa midfielder <strong>John McGinn</strong> was the hero, getting a vital touch on a deflected shot that wrong-footed Haitian goalkeeper <strong>Johny Placide</strong> in the 28th minute. Scotland defended resolutely for the remaining hour, withstanding Haitian pressure to claim three precious points in Group C.</p>
+          <p>For Haiti, making only their second World Cup appearance, the tournament continues — but they face an uphill battle to progress with Brazil and Morocco still to come in the group.</p>
+          <div class="scorer-line">⚽ <strong>John McGinn</strong> (SCO) — 28'</div>
+        </div>
+      </div>
+
+      <!-- MATCH 4: Australia vs Turkey -->
+      <div class="match-card">
+        <div class="match-img-wrap">
+          <img
+            src="https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=900&q=80"
+            alt="Australia vs Turkey World Cup 2026"
+            class="match-img"
+          />
+          <div class="match-score-badge">
+            <div class="team">
+              <img src="https://flagcdn.com/w80/au.png" alt="Australia flag" />
+              <span class="team-name">Australia</span>
+            </div>
+            <div class="score-box">2 – 0</div>
+            <div class="team">
+              <img src="https://flagcdn.com/w80/tr.png" alt="Turkey flag" />
+              <span class="team-name">Türkiye</span>
+            </div>
+          </div>
+        </div>
+        <div class="match-body">
+          <div class="match-group">Group D · BC Place, Vancouver</div>
+          <div class="match-title">Socceroos Dominate Türkiye in Convincing Group D Opener</div>
+          <p>Australia announced themselves at the 2026 World Cup in emphatic fashion, defeating a fancied Türkiye side 2-0 in Vancouver. The Socceroos, who have been steadily building as a footballing nation, were organised, direct, and ruthless on the counter-attack.</p>
+          <p>Young forward <strong>Nestory Irankunda</strong> broke the deadlock with a composed finish after a swift early counter, silencing the Turkish fans who had backed their side to qualify from a competitive Group D. Türkiye — who notably rested star Kenan Yildiz — pushed for an equalizer but were caught again when substitute <strong>Connor Metcalfe</strong> doubled the lead in the second half, sealing a famous three-point haul for the Socceroos.</p>
+          <div class="scorer-line">⚽ <strong>Nestory Irankunda</strong> (AUS) — 1st half &nbsp;|&nbsp; ⚽ <strong>Connor Metcalfe</strong> (AUS) — 2nd half</div>
+        </div>
+      </div>
+
+      <div class="article-body">
+        <p>Saturday's results have set up a series of fascinating group-stage permutations. In Group C, Brazil and Morocco share the spoils while Scotland leap above Haiti into second place. In Group D, Australia lead the way after Turkey's opening-day defeat. The World Cup is only just getting started — and it has already delivered drama, upsets, and moments to remember.</p>
+        <p>Play continues Sunday with further Group Stage fixtures across the USA, Canada, and Mexico. Check back for live updates, match reports, and analysis throughout the tournament.</p>
+      </div>
+
+    </article>
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside>
+
+    <div class="sidebar-widget">
+      <div class="widget-title">June 13 Standings Snapshot</div>
+
+      <div class="group-label">Group B</div>
+      <table class="standings-table">
+        <tr><th></th><th>Team</th><th>P</th><th>Pts</th></tr>
+        <tr><td><span class="flag">🇶🇦</span></td><td>Qatar</td><td>1</td><td class="pts">1</td></tr>
+        <tr><td><span class="flag">🇨🇭</span></td><td>Switzerland</td><td>1</td><td class="pts">1</td></tr>
+      </table>
+
+      <div class="group-label">Group C</div>
+      <table class="standings-table">
+        <tr><th></th><th>Team</th><th>P</th><th>Pts</th></tr>
+        <tr><td><span class="flag">🏴󠁧󠁢󠁳󠁣󠁴󠁿</span></td><td>Scotland</td><td>1</td><td class="pts">3</td></tr>
+        <tr><td><span class="flag">🇧🇷</span></td><td>Brazil</td><td>1</td><td class="pts">1</td></tr>
+        <tr><td><span class="flag">🇲🇦</span></td><td>Morocco</td><td>1</td><td class="pts">1</td></tr>
+        <tr><td><span class="flag">🇭🇹</span></td><td>Haiti</td><td>1</td><td class="pts">0</td></tr>
+      </table>
+
+      <div class="group-label">Group D</div>
+      <table class="standings-table">
+        <tr><th></th><th>Team</th><th>P</th><th>Pts</th></tr>
+        <tr><td><span class="flag">🇦🇺</span></td><td>Australia</td><td>1</td><td class="pts">3</td></tr>
+        <tr><td><span class="flag">🇹🇷</span></td><td>Türkiye</td><td>1</td><td class="pts">0</td></tr>
+      </table>
+    </div>
+
+    <div class="sidebar-widget">
+      <div class="widget-title">More World Cup News</div>
+
+      <div class="related-item">
+        <img src="https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=200&q=70" alt="World Cup opening" class="related-thumb" />
+        <div>
+          <p>World Cup 2026 Opens with Host Nations in Action</p>
+          <time>June 11, 2026</time>
+        </div>
+      </div>
+
+      <div class="related-item">
+        <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=200&q=70" alt="Soccer player" class="related-thumb" />
+        <div>
+          <p>USA Crush Paraguay 4-1 in Group A Opener — Balogun Nets Brace</p>
+          <time>June 13, 2026</time>
+        </div>
+      </div>
+
+      <div class="related-item">
+        <img src="https://images.unsplash.com/photo-1551854838-212c50b4c184?w=200&q=70" alt="World Cup trophy" class="related-thumb" />
+        <div>
+          <p>Group Stage Preview: Who Are the Favourites to Lift the Trophy?</p>
+          <time>June 10, 2026</time>
+        </div>
+      </div>
+
+      <div class="related-item">
+        <img src="https://images.unsplash.com/photo-1523741543316-beb7fc7023d8?w=200&q=70" alt="Stadium" class="related-thumb" />
+        <div>
+          <p>All 16 Host Stadiums Ranked: From MetLife to BC Place</p>
+          <time>June 8, 2026</time>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-widget" style="background:#1a1a1a; color:#fff;">
+      <div class="widget-title" style="color:#e74c3c; border-color:#333;">Sunday's Fixtures</div>
+      <div style="font-size:13px; line-height:2; color:#ccc;">
+        <div>🇦🇷 Argentina <strong style="color:#fff;">vs</strong> 🇳🇬 Nigeria</div>
+        <div>🇩🇪 Germany <strong style="color:#fff;">vs</strong> 🇯🇵 Japan</div>
+        <div>🇫🇷 France <strong style="color:#fff;">vs</strong> 🇨🇴 Colombia</div>
+        <div>🇪🇸 Spain <strong style="color:#fff;">vs</strong> 🇧🇪 Belgium</div>
+        <div style="margin-top:10px; font-size:11px; color:#777;">All times local to venue</div>
+      </div>
+    </div>
+
+  </aside>
+
+</div>
+
+<footer>
+  <p style="margin-bottom:10px;">
+    <a href="#">About</a>
+    <a href="#">Contact</a>
+    <a href="#">Privacy Policy</a>
+    <a href="#">Terms of Use</a>
+    <a href="#">Advertise</a>
+  </p>
+  <p style="font-size:12px; color:#555;">© 2026 WorldCupDaily. All rights reserved. Match data sourced from FIFA, ESPN, and official tournament records.</p>
+</footer>
+
+</body>
+</html>
