@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vulcan API Explorer</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Vulcan API Explorer</div>
+  <div id="sessionBar" class="session-bar">
+    <span id="sessionStatus" class="status-pill status-off">not connected</span>
+    <span id="jwtCountdown" class="countdown"></span>
+    <button id="loginBtn" class="btn btn-sm">Connect / Log in</button>
+    <button id="logoutBtn" class="btn btn-sm btn-ghost hidden">Log out</button>
+  </div>
+</header>
+
+<dialog id="loginDialog">
+  <form id="loginForm" class="dialog-form">
+    <h2>Connect to Vulcan CMS</h2>
+    <label>Admin base URL
+      <input type="text" id="baseUrl" placeholder="https://staging-admin.clickto.bet" required />
+    </label>
+    <label>Email
+      <input type="email" id="email" required />
+    </label>
+    <label>Password
+      <input type="password" id="password" required />
+    </label>
+    <p class="hint">Auth uses the documented <code>jwtauthorization</code> header and a 300s JWT with automatic refresh — this stays connected for as long as this tab is open.</p>
+    <div id="loginError" class="error-msg"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" id="cancelLogin">Cancel</button>
+      <button type="submit" class="btn btn-primary">Log in</button>
+    </div>
+  </form>
+  <form id="twoFaForm" class="dialog-form hidden">
+    <h2>Two-factor code</h2>
+    <label>6-digit code
+      <input type="text" id="authCode" inputmode="numeric" pattern="[0-9]{6}" required />
+    </label>
+    <div id="twoFaError" class="error-msg"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" id="cancelTwoFa">Cancel</button>
+      <button type="submit" class="btn btn-primary">Verify</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="linkPickerDialog">
+  <h2>Pick a linked value</h2>
+  <p class="hint">Choose a saved response item — its key value will be inserted into the field.</p>
+  <div id="linkPickerList" class="picker-dialog-list"></div>
+  <div class="dialog-actions">
+    <button type="button" class="btn btn-ghost" id="closeLinkPicker">Close</button>
+  </div>
+</dialog>
+
+<dialog id="saveResponseDialog">
+  <form id="saveResponseForm" class="dialog-form">
+    <h2>Save this response</h2>
+    <label>Name
+      <input type="text" id="saveRespName" required />
+    </label>
+    <label>Key field (becomes the value used in parameters — usually an id)
+      <input type="text" id="saveRespKeyField" value="id" />
+    </label>
+    <label>Label field (human-readable — shown in the picker)
+      <input type="text" id="saveRespLabelField" placeholder="e.g. values.internal_name, name, title" />
+    </label>
+    <p class="hint" id="saveRespPreviewHint"></p>
+    <div id="saveResponseError" class="error-msg"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-ghost" id="cancelSaveResponse">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="explorer">Explorer</button>
+  <button class="tab-btn" data-tab="saved">Saved Responses</button>
+  <button class="tab-btn" data-tab="query">DB Query</button>
+</nav>
+
+<main>
+  <section id="tab-explorer" class="tab-panel active">
+    <div class="explorer-grid">
+      <div class="panel picker-panel">
+        <h3>1. Site</h3>
+        <select id="siteSelect"><option value="">— select a site —</option></select>
+        <button id="refreshSitesBtn" class="btn btn-sm btn-ghost">Refresh sites</button>
+
+        <h3>2. API / Resource</h3>
+        <select id="categorySelect"><option value="">— select a category —</option></select>
+        <select id="entityTypeSelect" class="hidden"><option value="">— select an entity type —</option></select>
+
+        <h3>3. Method</h3>
+        <select id="operationSelect"><option value="">— select an operation —</option></select>
+
+        <div id="opBadges" class="badges"></div>
+        <div id="opNotes" class="notes"></div>
+      </div>
+
+      <div class="panel param-panel">
+        <h3>Parameters</h3>
+        <div id="paramForm"></div>
+        <div class="advanced-query hidden" id="advancedQueryBlock">
+          <h4>Extra query filters</h4>
+          <div id="extraQueryRows"></div>
+          <button type="button" id="addQueryRowBtn" class="btn btn-sm btn-ghost">+ add filter</button>
+        </div>
+        <button id="sendBtn" class="btn btn-primary" disabled>Send request</button>
+        <div id="callError" class="error-msg"></div>
+      </div>
+
+      <div class="panel response-panel">
+        <h3>Response</h3>
+        <div id="responseMeta" class="response-meta"></div>
+        <div class="response-actions hidden" id="responseActions">
+          <button id="downloadBtn" class="btn btn-sm">Download JSON</button>
+          <button id="saveResponseBtn" class="btn btn-sm">Save response…</button>
+        </div>
+        <pre id="responseBody" class="response-body">No request sent yet.</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-saved" class="tab-panel">
+    <div class="panel">
+      <h3>Saved response sets</h3>
+      <p class="hint">Save a response (e.g. the Sites list, or an Entities search) and pick which field is the key and which is the human-readable label. Saved sets can then be used to fill parameter values elsewhere — e.g. pick a Site by name and its ID gets used automatically.</p>
+      <div id="savedList"></div>
+    </div>
+  </section>
+
+  <section id="tab-query" class="tab-panel">
+    <div class="panel">
+      <h3>Query mode</h3>
+      <div class="query-mode-switch">
+        <button class="btn btn-sm query-mode-btn active" data-mode="attribute">Entity / attribute value</button>
+        <button class="btn btn-sm query-mode-btn" data-mode="widget">Widget usage</button>
+      </div>
+
+      <div id="queryScopeBlock">
+        <h4>Scope</h4>
+        <label><input type="radio" name="queryScope" value="site" checked /> One site</label>
+        <select id="querySiteSelect"><option value="">— select a site —</option></select>
+        <label><input type="radio" name="queryScope" value="all" /> Whole CMS (all sites)</label>
+      </div>
+
+      <div id="attributeQueryForm">
+        <h4>Entity types to scan</h4>
+        <select id="queryEntityTypes" multiple size="8"></select>
+        <h4>Property path</h4>
+        <input type="text" id="queryPropertyPath" placeholder="values.brand_features.brand_features_local[].features_title" />
+        <p class="hint">Dot notation; use <code>[]</code> to iterate an array, e.g. <code>values.widgets[].entityTypeId</code>.</p>
+        <h4>Match</h4>
+        <select id="queryMatchMode">
+          <option value="exists">any value (just report what's there)</option>
+          <option value="equals">equals</option>
+          <option value="contains">contains (text)</option>
+        </select>
+        <input type="text" id="queryMatchValue" placeholder="value to match (optional for 'any value')" />
+      </div>
+
+      <div id="widgetQueryForm" class="hidden">
+        <h4>Widget type</h4>
+        <select id="queryWidgetType"></select>
+        <h4>Host entity types (optional — default: all page-like types)</h4>
+        <select id="queryHostTypes" multiple size="8"></select>
+      </div>
+
+      <button id="runQueryBtn" class="btn btn-primary">Run query</button>
+      <div id="queryError" class="error-msg"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Results</h3>
+      <div id="queryMeta" class="response-meta"></div>
+      <div class="response-actions hidden" id="queryResultActions">
+        <button id="downloadQueryBtn" class="btn btn-sm">Download JSON</button>
+      </div>
+      <div id="queryResults"></div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
