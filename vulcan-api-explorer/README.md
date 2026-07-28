@@ -44,7 +44,9 @@ It covers:
    property value (dot-notation path, e.g.
    `values.brand_features.brand_features_local[].features_title`) on one site
    or across the whole CMS, or specifically find every page embedding a given
-   widget type ("widget usage").
+   widget type ("widget usage"). Don't want to hand-write the path? Click
+   "Pick from sample data" — it fetches a real entity of the selected type and
+   lets you click the field you want in an expandable tree instead.
 
 ## Running it
 

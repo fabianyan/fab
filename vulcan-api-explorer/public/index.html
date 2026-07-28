@@ -79,6 +79,17 @@
   </form>
 </dialog>
 
+<dialog id="propertyPathPickerDialog">
+  <h2>Pick a field</h2>
+  <p class="hint">Fetching a real sample entity so you can click the field you want instead of typing a path.</p>
+  <div id="propertyPathPickerStatus" class="hint"></div>
+  <div id="propertyPathPickerTree" class="json-tree"></div>
+  <div id="propertyPathPickerPreview" class="path-preview">Hover a field below to preview its path…</div>
+  <div class="dialog-actions">
+    <button type="button" class="btn btn-ghost" id="closePropertyPathPicker">Close</button>
+  </div>
+</dialog>
+
 <nav class="tabs">
   <button class="tab-btn active" data-tab="explorer">Explorer</button>
   <button class="tab-btn" data-tab="saved">Saved Responses</button>
@@ -156,8 +167,11 @@
         <h4>Entity types to scan</h4>
         <select id="queryEntityTypes" multiple size="8"></select>
         <h4>Property path</h4>
-        <input type="text" id="queryPropertyPath" placeholder="values.brand_features.brand_features_local[].features_title" />
-        <p class="hint">Dot notation; use <code>[]</code> to iterate an array, e.g. <code>values.widgets[].entityTypeId</code>.</p>
+        <div class="property-path-row">
+          <input type="text" id="queryPropertyPath" placeholder="values.brand_features.brand_features_local[].features_title" />
+          <button type="button" id="pickPropertyPathBtn" class="btn btn-sm btn-ghost">🔍 Pick from sample data</button>
+        </div>
+        <p class="hint">Not sure what to type? Click "Pick from sample data" and select a field instead — or use dot notation yourself; <code>[]</code> means "check every item in this array", e.g. <code>values.widgets[].entityTypeId</code>.</p>
         <h4>Match</h4>
         <select id="queryMatchMode">
           <option value="exists">any value (just report what's there)</option>

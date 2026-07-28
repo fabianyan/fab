@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { renderJsonTree } from './jsonTree.js';
 
 export function initDbQuery(catalog) {
   const el = {
@@ -19,6 +20,12 @@ export function initDbQuery(catalog) {
     queryResultActions: document.getElementById('queryResultActions'),
     queryResults: document.getElementById('queryResults'),
     downloadQueryBtn: document.getElementById('downloadQueryBtn'),
+    pickPropertyPathBtn: document.getElementById('pickPropertyPathBtn'),
+    pathPickerDialog: document.getElementById('propertyPathPickerDialog'),
+    pathPickerStatus: document.getElementById('propertyPathPickerStatus'),
+    pathPickerTree: document.getElementById('propertyPathPickerTree'),
+    pathPickerPreview: document.getElementById('propertyPathPickerPreview'),
+    closePathPicker: document.getElementById('closePropertyPathPicker'),
   };
 
   let mode = 'attribute';
@@ -158,5 +165,63 @@ export function initDbQuery(catalog) {
     a.download = `db-query-${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  // --- Property path picker: click a field in a real sample entity -------
+  el.closePathPicker.addEventListener('click', () => el.pathPickerDialog.close());
+
+  const PREVIEW_PLACEHOLDER = 'Hover a field below to preview its path…';
+
+  function showPathPickerStatus(text) {
+    el.pathPickerStatus.textContent = text;
+    el.pathPickerTree.innerHTML = '';
+    el.pathPickerPreview.textContent = PREVIEW_PLACEHOLDER;
+  }
+
+  el.pickPropertyPathBtn.addEventListener('click', async () => {
+    const entityTypeIds = selectedValues(el.queryEntityTypes);
+    if (!entityTypeIds.length) {
+      el.queryError.textContent = 'Select at least one entity type above first — the picker needs to know what to sample.';
+      return;
+    }
+    const siteId = el.querySiteSelect.value || [...el.querySiteSelect.options].find((o) => o.value)?.value;
+    if (!siteId) {
+      el.queryError.textContent = 'No site available to sample from yet — log in and pick a site first.';
+      return;
+    }
+    el.queryError.textContent = '';
+    el.pathPickerDialog.showModal();
+    showPathPickerStatus('Fetching a sample entity…');
+
+    const typeId = entityTypeIds[0];
+    const typeLabel = catalog.entityTypes.find((t) => t.typeId === typeId)?.label || `type ${typeId}`;
+    const siteLabel = el.querySiteSelect.selectedOptions[0]?.textContent || `site ${siteId}`;
+
+    const res = await api.call({
+      operationId: 'entities_list', siteId,
+      query: { entityType: `/api/entity_types/${typeId}`, original: true },
+    });
+    if (!res.ok || res.data?.status !== 200) {
+      showPathPickerStatus(`Couldn't fetch a sample ${typeLabel} entity from ${siteLabel}. Close this and try a different entity type or site, or type the path manually.`);
+      return;
+    }
+    const members = res.data.data?.['hydra:member'] || [];
+    if (!members.length) {
+      showPathPickerStatus(`No ${typeLabel} entities exist yet on ${siteLabel} to sample from — create one first, pick a different type, or type the path manually.`);
+      return;
+    }
+
+    el.pathPickerStatus.textContent = `Sample: a real ${typeLabel} entity from ${siteLabel}. Click any field below to use it.`;
+    renderJsonTree(
+      el.pathPickerTree,
+      members[0],
+      (path) => {
+        el.queryPropertyPath.value = path;
+        el.pathPickerDialog.close();
+      },
+      (path) => {
+        el.pathPickerPreview.textContent = path ? `→ ${path}` : PREVIEW_PLACEHOLDER;
+      },
+    );
   });
 }
