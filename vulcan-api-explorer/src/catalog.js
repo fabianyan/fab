@@ -5,7 +5,13 @@
  * "Vulcan CMS — API Flow Documentation" (HAR-verified admin API recordings).
  * `confirmed` mirrors the doc's own confidence: true = HAR-verified,
  * 'partial' = documented but with an open question, false = inferred/not observed.
+ *
+ * OPERATIONS below is extended at load time with operations derived from the
+ * real API's Hydra/JSON-LD documentation (src/hydraCatalog.js) — see that
+ * file for how paths/fields are derived and what's still just inferred.
  */
+
+const { buildHydraCatalog } = require('./hydraCatalog');
 
 // ---------------------------------------------------------------------------
 // Entity types (section "Entity type IDs" + the per-type sections 4/7/8/8A-8I)
@@ -546,6 +552,8 @@ const OPERATIONS = [
   },
 ];
 
+const ALL_OPERATIONS = [...OPERATIONS, ...buildHydraCatalog().operations];
+
 function operationsCatalog() {
   return {
     entityTypes: ENTITY_TYPES.map((t) => ({
@@ -553,13 +561,13 @@ function operationsCatalog() {
       layout: t.layout || null, pageLike: !!t.pageLike, confirmed: t.confirmed,
       note: t.note || null, fields: t.fields,
     })),
-    operations: OPERATIONS.map((op) => ({ ...op })),
+    operations: ALL_OPERATIONS.map((op) => ({ ...op })),
     pageLikeSharedFields: PAGE_LIKE_SHARED_FIELDS,
   };
 }
 
 function operationById(id) {
-  return OPERATIONS.find((op) => op.id === id);
+  return ALL_OPERATIONS.find((op) => op.id === id);
 }
 
 module.exports = { ENTITY_TYPES, OPERATIONS, entityTypeById, operationById, operationsCatalog };

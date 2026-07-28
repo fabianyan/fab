@@ -88,11 +88,14 @@ async function main() {
 
     const client = makeClient(APP_BASE);
 
-    await t('catalog is served without auth', async () => {
+    await t('catalog is served without auth, includes hydra-derived operations', async () => {
       const res = await client('GET', '/api/catalog');
       assert.equal(res.status, 200);
       assert.ok(res.data.entityTypes.length > 10);
       assert.ok(res.data.operations.find((o) => o.id === 'entity_create'));
+      assert.ok(res.data.operations.length > 100, 'expected hydra-derived operations to be merged in');
+      assert.ok(res.data.operations.find((o) => o.id === 'hydra_attributeGroup_create'));
+      assert.ok(res.data.operations.find((o) => o.id === 'hydra_role_list'));
     });
 
     await t('login without 2FA authenticates immediately', async () => {

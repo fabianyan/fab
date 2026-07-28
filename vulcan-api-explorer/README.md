@@ -1,7 +1,20 @@
 # Vulcan API Explorer
 
-A small full-stack tool for interactively querying the Vulcan CMS admin API,
-built from `Vulcan CMS — API Flow Documentation` (the HAR-verified endpoint doc).
+A small full-stack tool for interactively querying the Vulcan CMS admin API.
+
+The catalog is built from two sources:
+- `Vulcan CMS — API Flow Documentation` (HAR-verified recordings of the admin
+  UI) — covers auth, sites, generic entity CRUD/publish/status/delete, media
+  upload, networks, and revalidate, with real payload shapes and gotchas.
+- The real API's own Hydra/JSON-LD documentation (`/api/docs.jsonld`,
+  `src/data/vulcan-hydra-docs.json`), parsed by `src/hydraCatalog.js` — adds
+  ~130 more operations across ~35 more resource types (Attributes, Users,
+  Roles & Permissions, Media Folders/Groups/Sizes, Sitemaps, Segments,
+  Favorites, Locks, Kandy integration, and more) with their real fields and
+  required/writeable flags. Hydra/JSON-LD doesn't carry literal URL paths, so
+  those are taken from a small confirmed-path override list where known and
+  best-effort derived otherwise — anything not confirmed is badged
+  "inferred — verify" in the UI rather than presented as fact.
 
 It covers:
 
@@ -73,7 +86,9 @@ Saved-response sets (the key/value linking feature) live in the browser's
 
 ```
 server.js                 entry point
-src/catalog.js             the endpoint + entity-type catalog transcribed from the doc
+src/catalog.js             hand-curated endpoint + entity-type catalog from the HAR doc, merged with hydraCatalog.js's output
+src/hydraCatalog.js         parses src/data/vulcan-hydra-docs.json into catalog-shaped operations
+src/data/vulcan-hydra-docs.json  the real API's Hydra/JSON-LD documentation (source of truth for fields/verbs)
 src/jsonPath.js             dot/bracket path walker used by the DB query engine
 src/sessionStore.js          in-memory session (JWT lifecycle, per-site token cache)
 src/vulcanClient.js          HTTP calls to Vulcan with 401->refresh->retry-once baked in
