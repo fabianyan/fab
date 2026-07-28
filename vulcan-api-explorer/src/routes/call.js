@@ -19,6 +19,43 @@ function fillPath(template, pathParams = {}) {
   return { filled, missing };
 }
 
+const MAX_AUTO_PAGES = 50;
+const MAX_AUTO_ITEMS = 10000;
+
+function isHydraCollection(data) {
+  return !!data && typeof data === 'object' && Array.isArray(data['hydra:member']);
+}
+
+/**
+ * Hydra collections are paginated (`hydra:view`/`hydra:next`) — a single GET
+ * only returns one page. For "List X" calls this silently truncates results,
+ * so follow every `hydra:next` link and merge all pages into one response.
+ */
+async function followHydraPagination(session, { base, auth, siteToken, initialResult }) {
+  const merged = { ...initialResult.data };
+  let pagesFetched = 1;
+  let truncated = false;
+  let next = merged['hydra:view'] && merged['hydra:view']['hydra:next'];
+
+  while (next) {
+    if (pagesFetched >= MAX_AUTO_PAGES || merged['hydra:member'].length >= MAX_AUTO_ITEMS) {
+      truncated = true;
+      break;
+    }
+    const nextUrl = next.startsWith('http') ? next : `${base}${next}`;
+    // eslint-disable-next-line no-await-in-loop
+    const pageResult = await call(session, { method: 'GET', url: nextUrl, auth, siteToken });
+    if (pageResult.status !== 200 || !isHydraCollection(pageResult.data)) break;
+    merged['hydra:member'] = merged['hydra:member'].concat(pageResult.data['hydra:member']);
+    merged['hydra:view'] = pageResult.data['hydra:view'];
+    next = merged['hydra:view'] && merged['hydra:view']['hydra:next'];
+    pagesFetched += 1;
+  }
+
+  delete merged['hydra:view'];
+  return { data: merged, pagesFetched, truncated };
+}
+
 function buildQuery(query = {}, extraQuery = []) {
   const merged = { ...query };
   for (const { key, value } of extraQuery) {
@@ -94,7 +131,7 @@ router.post('/', requireSession, async (req, res) => {
       data = form;
     }
 
-    const result = await call(session, {
+    let result = await call(session, {
       method: op.method,
       url,
       auth: op.auth,
@@ -105,6 +142,13 @@ router.post('/', requireSession, async (req, res) => {
       multipart,
     });
 
+    let pagination;
+    if (op.method === 'GET' && result.status === 200 && isHydraCollection(result.data)) {
+      const paged = await followHydraPagination(session, { base, auth: op.auth, siteToken, initialResult: result });
+      result = { ...result, data: paged.data };
+      pagination = { pagesFetched: paged.pagesFetched, truncated: paged.truncated, itemCount: paged.data['hydra:member'].length };
+    }
+
     res.json({
       status: result.status,
       ok: result.status >= 200 && result.status < 300,
@@ -112,6 +156,7 @@ router.post('/', requireSession, async (req, res) => {
       requestSummary: { method: op.method, url, params, siteScoped: op.scope === 'site' },
       headers: result.headers,
       data: result.data,
+      pagination,
     });
   } catch (err) {
     const status = err instanceof VulcanApiError ? (err.status || 502) : 502;

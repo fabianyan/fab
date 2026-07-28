@@ -189,6 +189,29 @@ async function main() {
       assert.ok(res.data.data['@id'].startsWith('/api/media/'));
     });
 
+    await t('entities_list auto-follows hydra pagination and merges all pages', async () => {
+      // Mock paginates at 2 items/page — create 5 to force a 3-page fetch.
+      const created = [];
+      for (let i = 0; i < 5; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const c = await client('POST', '/api/call', {
+          operationId: 'entity_create', siteId: 37,
+          body: { entityType: '/api/entity_types/2306', values: { payment_name: `[TEST] PM ${i}` } },
+        });
+        created.push(c.data.data.id);
+      }
+      const res = await client('POST', '/api/call', {
+        operationId: 'entities_list', siteId: 37, query: { entityType: '/api/entity_types/2306', original: true },
+      });
+      assert.equal(res.data.status, 200);
+      assert.equal(res.data.data['hydra:member'].length, 5, 'all 5 items should be merged across pages');
+      assert.ok(res.data.pagination, 'pagination metadata should be present');
+      assert.equal(res.data.pagination.pagesFetched, 3);
+      assert.equal(res.data.pagination.itemCount, 5);
+      assert.equal(res.data.pagination.truncated, false);
+      assert.equal(res.data.data['hydra:view'], undefined, 'internal hydra:view bookkeeping should not leak into the merged response');
+    });
+
     await t('widget-usage query finds the brand widget on the review page', async () => {
       // recreate since the previous test deleted it
       const create = await client('POST', '/api/call', {

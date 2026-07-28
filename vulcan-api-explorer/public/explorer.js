@@ -353,7 +353,13 @@ export function initExplorer(catalog) {
     state.lastResponse = res;
     const status = res.status || res.data?.status || 0;
     const cls = status >= 200 && status < 300 ? 'status-2xx' : (status >= 500 ? 'status-5xx' : 'status-4xx');
-    el.responseMeta.innerHTML = `<span class="status-code ${cls}">${status}</span> <span>${res.elapsedMs ?? ''} ms</span>`;
+    let metaHtml = `<span class="status-code ${cls}">${status}</span> <span>${res.elapsedMs ?? ''} ms</span>`;
+    if (res.pagination) {
+      const p = res.pagination;
+      metaHtml += ` <span>${p.itemCount} items across ${p.pagesFetched} page${p.pagesFetched === 1 ? '' : 's'} (auto-fetched)</span>`;
+      if (p.truncated) metaHtml += ` <span class="hint">⚠️ truncated at the page/item safety cap — not all results were fetched</span>`;
+    }
+    el.responseMeta.innerHTML = metaHtml;
     el.responseBody.textContent = JSON.stringify(res.data ?? res, null, 2);
     el.responseActions.classList.remove('hidden');
   }

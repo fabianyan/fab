@@ -183,14 +183,25 @@ function serializeEntity(e) {
   };
 }
 
+const MOCK_PAGE_SIZE = 2;
+
 app.get('/api/entities', requireAuth, requireSite, (req, res) => {
   const typeId = entityTypeIdFromIri(req.query.entityType);
   let list = [...entities.values()].filter((e) => e.siteId === req.vulcanSite.id);
   if (typeId) list = list.filter((e) => e.entityType === typeId);
-  res.json({
-    'hydra:member': list.map(serializeEntity),
+
+  const page = Number(req.query.page) || 1;
+  const start = (page - 1) * MOCK_PAGE_SIZE;
+  const pageItems = list.slice(start, start + MOCK_PAGE_SIZE);
+  const body = {
+    'hydra:member': pageItems.map(serializeEntity),
     'hydra:totalItems': list.length,
-  });
+  };
+  if (start + MOCK_PAGE_SIZE < list.length) {
+    const nextQuery = new URLSearchParams({ ...req.query, page: String(page + 1) }).toString();
+    body['hydra:view'] = { 'hydra:next': `/api/entities?${nextQuery}` };
+  }
+  res.json(body);
 });
 
 app.get('/api/entities/:id', requireAuth, requireSite, (req, res) => {
