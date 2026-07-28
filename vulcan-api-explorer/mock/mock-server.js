@@ -154,12 +154,20 @@ app.get('/api/localizations', requireAuth, (req, res) => {
 // Entity types
 // ---------------------------------------------------------------------------
 
+// A couple of extra types NOT in the app's curated catalog — proves the
+// "raw JSON fallback" path for entity types the doc never covered.
+const UNCURATED_ENTITY_TYPES = [
+  { id: 55501, slug: 'custom_landing_widget', name: '[TEST] Custom Landing Widget' },
+  { id: 55502, slug: 'legacy_promo_banner', name: '[TEST] Legacy Promo Banner' },
+];
+
 app.get('/api/entity_types', requireAuth, requireSite, (req, res) => {
   const slug = req.query.slug;
   if (slug && ENTITY_TYPE_SLUGS[slug] != null) {
     return res.json({ 'hydra:member': [{ id: ENTITY_TYPE_SLUGS[slug], slug }] });
   }
-  res.json({ 'hydra:member': Object.entries(ENTITY_TYPE_SLUGS).map(([slug, id]) => ({ id, slug })) });
+  const curated = Object.entries(ENTITY_TYPE_SLUGS).map(([s, id]) => ({ id, slug: s }));
+  res.json({ 'hydra:member': [...curated, ...UNCURATED_ENTITY_TYPES] });
 });
 
 // ---------------------------------------------------------------------------

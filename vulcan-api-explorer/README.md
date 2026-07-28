@@ -20,7 +20,11 @@ It covers:
 
 1. **Pick a site, a resource, and a method** — a catalog of every documented
    entity type and endpoint (auth, sites, entities CRUD/publish/status/delete,
-   media, networks, revalidate), with the real HTTP method and path.
+   media, networks, revalidate), with the real HTTP method and path. Once a
+   site is selected, the "entity type" dropdown also fetches that site's real,
+   live entity type list (`GET /api/entity_types`, auto-paginated) — any type
+   not in the curated catalog still works via a raw-JSON `values` fallback,
+   so the picker is never capped at only the types this doc happened to cover.
 2. **See its parameters** — path/query/body fields are rendered from the doc,
    including which are required, JSON-string-in-JSON quirks, the widgets UUID
    coupling rule, and a confidence badge (HAR-verified / partially documented

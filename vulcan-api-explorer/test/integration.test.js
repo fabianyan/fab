@@ -111,6 +111,14 @@ async function main() {
       assert.ok(res.data.some((s) => s.id === 37));
     });
 
+    await t('entity_types_list returns the real per-site list, including types not in the curated catalog', async () => {
+      const res = await client('POST', '/api/call', { operationId: 'entity_types_list', siteId: 37, query: {} });
+      assert.equal(res.data.status, 200);
+      const members = res.data.data['hydra:member'];
+      assert.ok(members.length >= 5, 'expected curated + uncurated mock entity types');
+      assert.ok(members.some((m) => m.id === 55501), 'expected an uncurated entity type to be present for the fallback UI path');
+    });
+
     let promotionId;
     await t('create a Promotion', async () => {
       const res = await client('POST', '/api/call', {

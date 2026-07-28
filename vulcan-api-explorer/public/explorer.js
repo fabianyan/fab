@@ -55,6 +55,7 @@ export function initExplorer(catalog) {
     refreshSitesBtn: document.getElementById('refreshSitesBtn'),
     categorySelect: document.getElementById('categorySelect'),
     entityTypeSelect: document.getElementById('entityTypeSelect'),
+    entityTypesNote: document.getElementById('entityTypesNote'),
     operationSelect: document.getElementById('operationSelect'),
     opBadges: document.getElementById('opBadges'),
     opNotes: document.getElementById('opNotes'),
@@ -71,7 +72,29 @@ export function initExplorer(catalog) {
     saveResponseBtn: document.getElementById('saveResponseBtn'),
   };
 
-  const state = { sites: [], lastResponse: null, lastOp: null };
+  const state = { sites: [], lastResponse: null, lastOp: null, liveEntityTypes: null };
+
+  function fallbackEntityType(id, label) {
+    return {
+      typeId: id, key: `type_${id}`, label: label || `Entity type ${id}`, category: 'Entities',
+      layout: null, pageLike: false, confirmed: false,
+      note: 'No curated field list for this type — edit its raw JSON `values` directly.',
+      fields: [{ key: 'values', type: 'object', required: false, note: 'Full values object for this entity type — shape unknown, inspect a "List entities" / "Get entity" response first.' }],
+    };
+  }
+
+  function populateEntityTypeSelect(entityTypes) {
+    const previous = el.entityTypeSelect.value;
+    el.entityTypeSelect.innerHTML = '<option value="">— select an entity type —</option>';
+    for (const t of entityTypes) {
+      const opt = document.createElement('option');
+      opt.value = t.typeId; opt.textContent = `${t.label} (${t.typeId})`;
+      el.entityTypeSelect.appendChild(opt);
+    }
+    if ([...el.entityTypeSelect.options].some((o) => o.value === previous)) {
+      el.entityTypeSelect.value = previous;
+    }
+  }
 
   // --- categories -----------------------------------------------------
   const categories = [...new Set(catalog.operations.map((o) => o.category))];
@@ -81,11 +104,7 @@ export function initExplorer(catalog) {
     el.categorySelect.appendChild(opt);
   }
 
-  for (const t of catalog.entityTypes) {
-    const opt = document.createElement('option');
-    opt.value = t.typeId; opt.textContent = `${t.label} (${t.typeId})`;
-    el.entityTypeSelect.appendChild(opt);
-  }
+  populateEntityTypeSelect(catalog.entityTypes);
 
   async function loadSites() {
     const res = await api.sites();
@@ -100,6 +119,40 @@ export function initExplorer(catalog) {
   }
   el.refreshSitesBtn.addEventListener('click', loadSites);
   document.addEventListener('vulcan:authenticated', loadSites);
+
+  async function refreshEntityTypesForSite(siteId) {
+    if (!siteId) return;
+    el.entityTypesNote.textContent = 'Loading the real entity type list for this site…';
+    el.entityTypesNote.classList.remove('hidden');
+    const res = await api.call({ operationId: 'entity_types_list', siteId, query: {} });
+    if (!res.ok || res.data?.status !== 200) {
+      el.entityTypesNote.textContent = "Couldn't load this site's live entity type list — showing the curated set from the docs only.";
+      return;
+    }
+    const raw = res.data.data;
+    const live = Array.isArray(raw) ? raw : (raw?.['hydra:member'] || raw?.member || []);
+    if (!live.length) {
+      el.entityTypesNote.textContent = "This site's entity type list came back empty — showing the curated set from the docs only.";
+      return;
+    }
+    const merged = live.map((entry) => {
+      const id = Number(entry.id);
+      const curated = catalog.entityTypes.find((t) => t.typeId === id);
+      return curated || fallbackEntityType(id, entry.name || entry.slug);
+    }).sort((a, b) => a.label.localeCompare(b.label));
+    state.liveEntityTypes = merged;
+    populateEntityTypeSelect(merged);
+    const curatedCount = merged.filter((t) => catalog.entityTypes.includes(t)).length;
+    el.entityTypesNote.textContent = `${merged.length} entity types loaded from this site (${curatedCount} with curated fields, ${merged.length - curatedCount} raw-JSON fallback).`;
+    renderOperation();
+  }
+
+  el.siteSelect.addEventListener('change', () => {
+    state.liveEntityTypes = null;
+    populateEntityTypeSelect(catalog.entityTypes);
+    el.entityTypesNote.classList.add('hidden');
+    refreshEntityTypesForSite(el.siteSelect.value);
+  });
 
   el.categorySelect.addEventListener('change', () => {
     const cat = el.categorySelect.value;
@@ -118,7 +171,8 @@ export function initExplorer(catalog) {
 
   function currentEntityType() {
     const id = Number(el.entityTypeSelect.value);
-    return catalog.entityTypes.find((t) => t.typeId === id) || null;
+    const pool = state.liveEntityTypes || catalog.entityTypes;
+    return pool.find((t) => t.typeId === id) || null;
   }
 
   function currentOp() {
