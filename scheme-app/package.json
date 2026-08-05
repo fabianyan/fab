@@ -1,0 +1,16 @@
+{
+  "name": "vulcan-scheme-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hosted live editor for Vulcan --scheme-* CSS variables, rendered against the real page via headless Chromium",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.1",
+    "puppeteer-core": "^22.11.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^17.33.5"
+  }
+}
