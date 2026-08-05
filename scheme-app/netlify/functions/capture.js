@@ -1,4 +1,3 @@
-const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
 const CORS_HEADERS = {
@@ -8,6 +7,26 @@ const CORS_HEADERS = {
 };
 
 const NAV_TIMEOUT_MS = 25000;
+
+// @sparticuz/chromium bundles a Linux binary built for AWS Lambda, which is
+// where deployed Netlify functions run. `netlify dev` runs the function on
+// the developer's own OS (Windows/macOS/local Linux), where that binary
+// can't execute - so local dev instead uses full `puppeteer`, which manages
+// its own Chromium build for the host OS.
+async function launchBrowser() {
+  if (process.env.NETLIFY_DEV) {
+    const puppeteerFull = require('puppeteer');
+    return puppeteerFull.launch({ headless: true, args: ['--no-sandbox'] });
+  }
+
+  const chromium = require('@sparticuz/chromium');
+  return puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
+  });
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -42,12 +61,7 @@ exports.handler = async (event) => {
 
   let browser;
   try {
-    browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
