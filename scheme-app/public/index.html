@@ -186,9 +186,14 @@
       linear-gradient(45deg, rgba(0,0,0,0.18) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 75%);
     background-size: 8px 8px;
     background-position: 0 0, 4px 4px;
+    /* Both rings sit outside the swatch. An inset light ring reads as a white
+       halo painted over the colour, which misrepresents it. Stacked outside,
+       the dark ring defines the edge of a pale value on a light backdrop and
+       the faint light ring does the same for a dark value on a dark one, while
+       the colour itself stays untouched. */
     box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.45),
-      0 0 0 1px rgba(0, 0, 0, 0.55);
+      0 0 0 1px rgba(0, 0, 0, 0.4),
+      0 0 0 2px rgba(255, 255, 255, 0.13);
   }
   .swatch .fill {
     position: absolute;
@@ -352,40 +357,59 @@
     word-break: break-all;
   }
 
-  /* Type sets are shown as one specimen with its member variables beneath, so
-     size, weight and line height are judged together rather than as three
-     unrelated numbers. */
-  .type-set {
+  /* The specimen is the content: a style shows its sizes as rendered lines of
+     text, with the tokens that produce them collapsed until asked for. */
+  .type-style {
     border-bottom: 1px solid var(--panel-line);
-    padding: 12px;
+    padding: 14px 12px 16px;
     background: var(--panel-card);
+  }
+  .type-style-name {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+    margin-bottom: 10px;
   }
   .type-head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
+    margin: 14px 0 4px;
+    cursor: pointer;
   }
-  .type-label {
-    font-size: 10.5px;
+  .bp-chip {
+    flex: 0 0 auto;
+    min-width: 20px;
+    text-align: center;
+    font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    line-height: 16px;
     color: var(--panel-dim);
+    border: 1px solid var(--panel-line);
+    border-radius: 3px;
+    padding: 0 3px;
   }
   .type-spec {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--panel-dim);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  /* Everything shown here comes from the captured values, so this rule must
-     not set any of the properties being demonstrated. */
+  /* Everything here comes from the captured values, so this rule must not set
+     any of the properties being demonstrated. One line clipped with an
+     ellipsis, so a 45px specimen still shows its true size instead of
+     wrapping into a paragraph. */
   .type-specimen {
-    margin: 0 0 8px;
+    margin: 0;
     color: var(--panel-fg);
-    overflow-wrap: anywhere;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
+  .type-vars { display: none; }
+  .type-vars.open { display: block; }
 
   #svCopied {
     position: fixed;
@@ -526,7 +550,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">panel-v16</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">type-v19</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -616,9 +640,20 @@
   // Trailing tokens that identify which text property a typography variable
   // carries, so `--scheme-typography-buttonBig-mobile-font-size` and its
   // siblings can be gathered back into one specimen.
+  // Real names spell the property in camelCase and put the breakpoint after it
+  // (`--scheme-typography-buttonBig-fontSize-desktop`), so the property token
+  // is neither kebab-case nor final. Each pattern matches either spelling
+  // anywhere in the name; whatever is left over becomes the set's stem, which
+  // keeps the breakpoint and so keeps `buttonBig-desktop` apart from
+  // `buttonBig-mobile`.
   var TYPE_PROPS = [
-    'font-size', 'line-height', 'font-weight', 'font-family',
-    'letter-spacing', 'text-transform', 'font-style',
+    { prop: 'font-size', re: /-(?:fontsize|font-size)(?=-|$)/i },
+    { prop: 'font-weight', re: /-(?:fontweight|font-weight)(?=-|$)/i },
+    { prop: 'line-height', re: /-(?:lineheight|line-height)(?=-|$)/i },
+    { prop: 'font-family', re: /-(?:fontfamily|font-family)(?=-|$)/i },
+    { prop: 'letter-spacing', re: /-(?:letterspacing|letter-spacing)(?=-|$)/i },
+    { prop: 'text-transform', re: /-(?:texttransform|text-transform)(?=-|$)/i },
+    { prop: 'font-style', re: /-(?:fontstyle|font-style)(?=-|$)/i },
   ];
   var SPECIMEN_TEXT = 'The quick brown fox jumps over the lazy dog';
 
@@ -980,16 +1015,14 @@
     // every variable, not just the visible ones, so a specimen keeps rendering
     // with its real size and weight while a filter narrows which members are
     // listed for editing.
-    var sets = typographySets().filter(function (set) {
-      return memberNames(set).some(function (n) {
-        return visible.indexOf(n) !== -1;
-      });
-    });
+    var styles = typographyStyles();
 
     var claimed = {};
-    sets.forEach(function (set) {
-      memberNames(set).forEach(function (n) {
-        claimed[n] = true;
+    styles.forEach(function (style) {
+      style.list.forEach(function (variant) {
+        Object.keys(variant.props).forEach(function (p) {
+          claimed[variant.props[p]] = true;
+        });
       });
     });
 
@@ -1027,7 +1060,7 @@
       els.groups.appendChild(groupEl);
     });
 
-    if (sets.length) renderTypeSets(sets, visible);
+    if (styles.length) renderTypeStyles(styles, visible);
   }
 
   function memberNames(set) {
@@ -1036,13 +1069,16 @@
     });
   }
 
-  function renderTypeSets(sets, visible) {
+  // The specimen is the content here. Each style shows its sizes as rendered
+  // lines of text; the variables that produce them are collapsed behind the
+  // specimen and revealed on click, so the type leads and the tokens follow.
+  function renderTypeStyles(styles, visible) {
     var groupEl = document.createElement('div');
     groupEl.className = 'group';
 
     var header = document.createElement('div');
     header.className = 'group-header';
-    header.innerHTML = '<span>typography</span><span class="group-count">' + sets.length + '</span>';
+    header.innerHTML = '<span>typography</span><span class=\'group-count\'>' + styles.length + '</span>';
     header.addEventListener('click', function () {
       groupEl.classList.toggle('collapsed');
     });
@@ -1052,39 +1088,72 @@
     rowsEl.className = 'group-rows';
     rowsEl.style.padding = '0';
 
-    sets.forEach(function (set) {
-      var block = document.createElement('div');
-      block.className = 'type-set';
+    styles.forEach(function (style) {
+      var styleEl = document.createElement('div');
+      styleEl.className = 'type-style';
 
-      var head = document.createElement('div');
-      head.className = 'type-head';
+      var name = document.createElement('div');
+      name.className = 'type-style-name';
+      name.textContent = style.style;
+      styleEl.appendChild(name);
 
-      var label = document.createElement('span');
-      label.className = 'type-label';
-      label.textContent = set.stem;
-      head.appendChild(label);
+      style.list.forEach(function (variant) {
+        var members = Object.keys(variant.props).map(function (p) {
+          return variant.props[p];
+        });
+        if (!members.some(function (n) { return visible.indexOf(n) !== -1; })) return;
 
-      var spec = document.createElement('span');
-      spec.className = 'type-spec';
-      head.appendChild(spec);
-      block.appendChild(head);
+        // Carries the class and _set shape refreshTypeSets looks for, so an
+        // edit updates this specimen without a rebuild.
+        var block = document.createElement('div');
+        block.className = 'type-set type-variant';
 
-      var specimen = document.createElement('p');
-      specimen.className = 'type-specimen';
-      specimen.textContent = SPECIMEN_TEXT;
-      block.appendChild(specimen);
+        var head = document.createElement('div');
+        head.className = 'type-head';
 
-      block._set = set;
-      block._spec = spec;
-      block._specimen = specimen;
-      applyTypeSet(block);
+        var chip = document.createElement('span');
+        chip.className = 'bp-chip';
+        chip.textContent = variant.bp ? variant.bp.charAt(0).toUpperCase() : '·';
+        chip.title = variant.bp || 'no breakpoint suffix';
+        head.appendChild(chip);
 
-      memberNames(set).sort().forEach(function (n) {
-        if (visible.indexOf(n) === -1) return;
-        block.appendChild(buildRow(n));
+        var spec = document.createElement('span');
+        spec.className = 'type-spec';
+        head.appendChild(spec);
+        styleEl.appendChild(head);
+
+        var specimen = document.createElement('p');
+        specimen.className = 'type-specimen';
+        specimen.textContent = SPECIMEN_TEXT;
+        specimen.title = 'Click to edit these variables';
+        styleEl.appendChild(specimen);
+
+        var vars = document.createElement('div');
+        vars.className = 'type-vars';
+        Object.keys(variant.props).sort().forEach(function (prop) {
+          var n = variant.props[prop];
+          if (visible.indexOf(n) === -1) return;
+          vars.appendChild(buildRow(n, prop));
+        });
+        styleEl.appendChild(vars);
+
+        var toggle = function () {
+          vars.classList.toggle('open');
+        };
+        head.addEventListener('click', toggle);
+        specimen.addEventListener('click', toggle);
+
+        block._set = variant;
+        block._spec = spec;
+        block._specimen = specimen;
+        applyTypeSet(block);
+        // Kept in the tree so refreshTypeSets can find it, without adding a
+        // visible element of its own.
+        block.style.display = 'none';
+        styleEl.appendChild(block);
       });
 
-      rowsEl.appendChild(block);
+      rowsEl.appendChild(styleEl);
     });
 
     groupEl.appendChild(rowsEl);
@@ -1093,7 +1162,7 @@
 
   // One row control per variable, used by both the main list and the
   // inspector panel, so a variable is edited the same way wherever it shows.
-  function buildRow(name) {
+  function buildRow(name, titleOverride) {
     var row = document.createElement('div');
     row.className = 'row';
     row.setAttribute('data-var', name);
@@ -1107,7 +1176,7 @@
 
     var label = document.createElement('div');
     label.className = 'name';
-    label.textContent = lastSegment(name);
+    label.textContent = titleOverride || lastSegment(name);
     label.title = name;
     main.appendChild(label);
 
@@ -1245,31 +1314,76 @@
   // Gathers `--scheme-typography-<stem>-<prop>` families back into one entry
   // per stem, so a specimen can be rendered with the real size, weight and
   // line height together instead of three unrelated numbers.
-  function typographySets() {
-    var sets = {};
-    var order = [];
+  // A breakpoint suffix names a variant of one style, not a style of its own,
+  // so it is split off: `buttonBig-fontSize-desktop` and
+  // `buttonBig-fontSize-mobile` are two variants of buttonBig rather than two
+  // unrelated tokens. That is what lets one style show its sizes together.
+  var BREAKPOINT = /^(desktop|tablet|mobile|xxl|xl|lg|md|sm|xs|d|t|m|l|s)$/i;
+
+  function parseTypeVar(name) {
+    for (var i = 0; i < TYPE_PROPS.length; i++) {
+      var entry = TYPE_PROPS[i];
+      if (!entry.re.test(name)) continue;
+
+      var rest = name
+        .replace(entry.re, '')
+        .replace(/^--scheme-/, '')
+        .replace(/^(typography|fonts|font)-/, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      if (!rest) return null;
+
+      var parts = rest.split('-');
+      var bp = '';
+      if (parts.length > 1 && BREAKPOINT.test(parts[parts.length - 1])) bp = parts.pop();
+      return { style: parts.join('-'), bp: bp, prop: entry.prop };
+    }
+    return null;
+  }
+
+  function typographyStyles() {
+    var styles = {};
 
     Object.keys(state.current).forEach(function (name) {
-      for (var i = 0; i < TYPE_PROPS.length; i++) {
-        var prop = TYPE_PROPS[i];
-        var suffix = '-' + prop;
-        if (name.length <= suffix.length) continue;
-        if (name.slice(-suffix.length) !== suffix) continue;
+      var parsed = parseTypeVar(name);
+      if (!parsed || !parsed.style) return;
 
-        var stem = name.slice(0, -suffix.length).replace(/^--scheme-(typography-|font-)?/, '');
-        if (!stem) continue;
-        if (!sets[stem]) {
-          sets[stem] = { stem: stem, props: {} };
-          order.push(stem);
-        }
-        sets[stem].props[prop] = name;
-        return;
-      }
+      var style = styles[parsed.style];
+      if (!style) style = styles[parsed.style] = { style: parsed.style, variants: {} };
+
+      var variant = style.variants[parsed.bp];
+      if (!variant) variant = style.variants[parsed.bp] = { bp: parsed.bp, props: {} };
+
+      if (!variant.props[parsed.prop]) variant.props[parsed.prop] = name;
     });
 
-    return order.sort().map(function (stem) {
-      return sets[stem];
+    return Object.keys(styles).sort(compareStyleNames).map(function (key) {
+      var style = styles[key];
+      // Largest first, so a style reads as a scale rather than an arbitrary
+      // list of breakpoints.
+      style.list = Object.keys(style.variants)
+        .map(function (bp) { return style.variants[bp]; })
+        .sort(function (a, b) { return sizeOf(b) - sizeOf(a); });
+      return style;
     });
+  }
+
+  function sizeOf(variant) {
+    var name = variant.props['font-size'];
+    var value = name ? state.current[name] : '';
+    var px = parseFloat(value);
+    return isNaN(px) ? 0 : px;
+  }
+
+  // h1..h6 in numeric order ahead of everything else, which is how a type
+  // scale is normally read.
+  function compareStyleNames(a, b) {
+    var ha = a.match(/^h([1-6])$/i);
+    var hb = b.match(/^h([1-6])$/i);
+    if (ha && hb) return Number(ha[1]) - Number(hb[1]);
+    if (ha) return -1;
+    if (hb) return 1;
+    return a.localeCompare(b);
   }
 
   function applyTypeSet(block) {

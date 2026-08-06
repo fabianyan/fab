@@ -78,20 +78,31 @@ A **Dark | Light** backdrop toggle flips the panel itself, because no single
 background suits every value. Rows whose value is not a colour show no swatch
 rather than an empty square.
 
-**Type specimens.** Typography variables arrive as separate tokens — 
-`…-buttonBig-desktop-font-size`, `-line-height`, `-font-weight` — which say
-very little read one at a time. They are gathered back into sets by their
-common stem and shown as a rendered line of text at that exact size, weight,
-line height and family, with the numbers summarised (`20px / 140% / 400`) and
-each member still editable beneath. Editing one updates the specimen
-immediately.
+**Type specimens.** Typography tokens arrive one property at a time —
+`…-h1-fontSize-m`, `…-h1-lineHeight-m`, `…-h1-fontWeight-m` — and say almost
+nothing read individually. The breakpoint suffix is split off as a *variant* of
+a style rather than a style of its own, so each style (h1, h2, buttonBig) shows
+its sizes together, largest first, as a scale.
+
+Each variant is a line of text rendered at that exact size, weight, line height
+and face, tagged with a breakpoint chip and the numbers (`45px / 137% / 700`).
+The specimen leads: it is one line clipped with an ellipsis so a 45px style
+still shows its true size, and the tokens behind it stay collapsed until you
+click the specimen, at which point they appear as ordinary editable rows.
+Editing one updates the specimen immediately. `h1`…`h6` sort numerically ahead
+of named styles.
+
+Property names are matched in either spelling and anywhere in the token, since
+real names put a camelCase property before the breakpoint
+(`buttonBig-fontSize-desktop`) rather than a kebab-case one at the end.
+Matching only the latter found no sets at all on a real scheme, leaving a flat
+wall of near-identical rows.
 
 Everything a specimen displays comes from the capture, never from this app:
-where a set declares no family or size, the fallback is the captured page's own
-body value, and the page's `@font-face` rules are copied in (with relative
+where a variant declares no family or size, the fallback is the captured page's
+own body value, and the page's `@font-face` rules are copied in (with relative
 `url()`s rewritten to absolute) so specimens render in the site's real
-typeface. If a set specifies neither and the page reported nothing, the
-property is left unset rather than invented.
+typeface. Absent both, the property is left unset rather than invented.
 
 Full names remain the keys in state, the `data-var` attributes, and what
 **Export :root** writes, so exported declarations stay complete and
