@@ -360,7 +360,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">subtree-v8</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">nav-v9</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -496,7 +496,14 @@
     // Belongs to the document that was just replaced.
     state.ruleIndex = null;
     els.inspectBtn.classList.toggle('active', state.inspecting);
-    if (state.inspecting) enableInspect();
+
+    // A document we cannot reach means the iframe navigated to the live site
+    // rather than being rendered by us, so nothing on screen matches what
+    // this app thinks it is showing. Say so instead of leaving the editor
+    // pointed at a page that is no longer displayed.
+    if (!attachPreviewHandlers() && state.pageUrl) {
+      setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
+    }
   });
 
   function setStatus(text, isError) {
@@ -823,34 +830,51 @@
   function setInspecting(on) {
     state.inspecting = on;
     els.inspectBtn.classList.toggle('active', on);
+    attachPreviewHandlers();
     if (on) {
-      enableInspect();
       setStatus('Inspect mode: click any element in the preview');
     } else {
-      disableInspect();
+      hideOverlay();
       closeInspector();
-      setStatus('');
+      setStatus('Inspect off · clicking a link still loads that page');
     }
   }
 
-  function enableInspect() {
+  // The click handler is attached whatever the inspect state, because the
+  // captured body contains real <a href> links and a sandboxed iframe is
+  // still allowed to navigate itself. If it does, it loads the live site
+  // cross-origin: the preview then shows a page this app cannot read and
+  // does not know it is on, so state.pageUrl still names the previous one
+  // and "recapture" appears to jump back. Every link click therefore has to
+  // be intercepted and routed through a capture instead.
+  function attachPreviewHandlers() {
     var doc = previewDoc();
     if (!doc || !doc.body) return false;
-    doc.removeEventListener('mousemove', onPreviewHover, true);
+
     doc.removeEventListener('click', onPreviewClick, true);
-    doc.addEventListener('mousemove', onPreviewHover, true);
     doc.addEventListener('click', onPreviewClick, true);
-    doc.body.style.cursor = 'crosshair';
+
+    // Forms are the other way the iframe can navigate itself out of the
+    // capture (a GET search form is enough).
+    doc.removeEventListener('submit', onPreviewSubmit, true);
+    doc.addEventListener('submit', onPreviewSubmit, true);
+
+    doc.removeEventListener('mousemove', onPreviewHover, true);
+    if (state.inspecting) doc.addEventListener('mousemove', onPreviewHover, true);
+
+    doc.body.style.cursor = state.inspecting ? 'crosshair' : '';
     return true;
   }
 
-  function disableInspect() {
+  function onPreviewSubmit(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setStatus('Form submissions are not followed in the preview', true);
+  }
+
+  function hideOverlay() {
     var doc = previewDoc();
-    if (!doc) return;
-    doc.removeEventListener('mousemove', onPreviewHover, true);
-    doc.removeEventListener('click', onPreviewClick, true);
-    if (doc.body) doc.body.style.cursor = '';
-    var overlay = doc.getElementById(OVERLAY_ID);
+    var overlay = doc && doc.getElementById(OVERLAY_ID);
     if (overlay) overlay.style.display = 'none';
   }
 
@@ -891,19 +915,20 @@
   }
 
   function onPreviewClick(e) {
+    // Unconditional: letting the iframe follow a link itself would load the
+    // live site cross-origin and desynchronise the whole editor.
     e.preventDefault();
     e.stopPropagation();
 
-    // A plain click on a link browses to it by re-capturing that URL, since
-    // the preview is srcdoc and cannot navigate on its own. Shift-click
-    // falls through to inspecting the link element itself.
+    // A plain click on a link browses to it by capturing that URL.
+    // Shift-click falls through to inspecting the link element itself.
     var href = e.shiftKey ? null : linkTargetOf(e.target);
     if (href) {
       loadPage(href);
       return;
     }
 
-    selectElement(e.target);
+    if (state.inspecting) selectElement(e.target);
   }
 
   // Resolves an anchor's href against the captured page's URL, and only for
@@ -953,9 +978,7 @@
       state.highlight = [];
       renderGroups();
     }
-    var doc = previewDoc();
-    var overlay = doc && doc.getElementById(OVERLAY_ID);
-    if (overlay) overlay.style.display = 'none';
+    hideOverlay();
   }
 
   function describeElement(el) {

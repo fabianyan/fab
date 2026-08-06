@@ -56,11 +56,19 @@ iframe immediately.
 
 ## Browsing between pages
 
-Clicking a link in the preview loads that page. The preview is rendered
-from `srcdoc` and cannot navigate on its own, so a link click is turned
-into a fresh capture of the link's URL — the same path as typing it in the
-box. Shift-click a link to inspect its styling instead of following it, and
-hover any link to see where it goes.
+Clicking a link in the preview loads that page: the click is intercepted and
+turned into a fresh capture of the link's URL, the same path as typing it in
+the box. Shift-click a link to inspect its styling instead of following it,
+and hover any link to see where it goes.
+
+That interception is unconditional, and has to be. The captured body holds
+the site's real `<a href>` links, and a sandboxed iframe is still permitted
+to navigate *itself* — so an un-intercepted click loads the live site
+cross-origin. The preview would then be showing a page this app can neither
+read nor identify, while the editor still described the previous one, making
+recapture look like it jumps backwards. Form submissions are blocked for the
+same reason. If the preview does end up on an unreadable document, the
+status bar says so rather than leaving the editor silently out of sync.
 
 **↻ Recapture** re-captures whatever page the preview is currently showing,
 for when the site has changed or you want to re-pull it with different
