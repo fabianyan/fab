@@ -39,10 +39,15 @@ iframe immediately.
 2. The function launches Chromium (`@sparticuz/chromium` + `puppeteer-core`),
    optionally authenticates via `page.authenticate` (credentials are used
    in-request only, never stored), and navigates to the URL.
-3. It reads every computed `--scheme-*` custom property off
-   `document.documentElement`, collects any `data-color-scheme` names on the
-   page, and captures the post-JS `<body>` HTML with `<script>` tags
-   stripped.
+3. It gathers every `--scheme-*` name referenced anywhere in the page's
+   stylesheets or set inline on `:root`, reads each one off the computed
+   style of `document.documentElement`, and keeps those that resolve to a
+   value. Names have to be collected this way because a computed style's
+   indexed list contains only standard properties — iterating
+   `getComputedStyle(el)` never yields a custom property, even though
+   `getPropertyValue('--x')` resolves it. It also collects any
+   `data-color-scheme` names and captures the post-JS `<body>` HTML with
+   `<script>` tags stripped.
 4. It fetches the page's linked stylesheets and strips their `:root { ... }`
    blocks (the resolved values are already captured in step 3 — this avoids
    the iframe re-deriving stale/default values from the raw CSS).
@@ -87,6 +92,32 @@ the status line reports how many were kept. **Reset all** clears them.
 
 Relative links resolve against the captured page's own URL rather than just
 its origin, so a `games/` link on `/zh/` correctly loads `/zh/games/`.
+
+## Desktop / mobile
+
+The **Desktop | Mobile** toggle switches the preview between a 1440px frame
+and a 390×844 phone frame. Narrowing the frame is what re-runs the page's
+own media queries, so the mobile view is the real responsive layout rather
+than a scaled picture of the desktop one.
+
+Captures are also *made* as the chosen device: the function sets a matching
+viewport and, for mobile, an iPhone user-agent, because sites can serve
+different markup and assets to phones rather than only different CSS. The
+device is remembered and used for every subsequent capture.
+
+Switching the toggle only resizes; it does not re-fetch, since a capture
+takes seconds. When the width no longer matches what was captured, the
+status bar says so and points at **↻ Recapture**.
+
+Two limits worth knowing:
+
+- `:root` blocks are stripped from the fetched CSS, **including ones inside
+  media queries**, because the resolved values are captured separately and
+  stale defaults would otherwise override them. So a site that redefines
+  `--scheme-*` per breakpoint will not show those differences from the width
+  toggle alone — recapture at that device to get them.
+- The captured markup is fixed at capture time, so a site that serves a
+  different DOM to phones only shows it after a recapture as mobile.
 
 ## Inspect mode
 

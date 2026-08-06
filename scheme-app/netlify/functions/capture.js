@@ -8,6 +8,29 @@ const CORS_HEADERS = {
 
 const NAV_TIMEOUT_MS = 25000;
 
+// Sites can serve different markup to phones, not just different CSS, so the
+// capture itself has to be made as the requested device rather than only
+// being displayed narrow afterwards.
+const DEVICES = {
+  desktop: {
+    width: 1440,
+    height: 900,
+    deviceScaleFactor: 1,
+    isMobile: false,
+    hasTouch: false,
+  },
+  mobile: {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+    userAgent:
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ' +
+      'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  },
+};
+
 // @sparticuz/chromium bundles a Linux binary built for AWS Lambda, which is
 // where deployed Netlify functions run. `netlify dev` runs the function on
 // the developer's own OS (Windows/macOS/local Linux), where that binary
@@ -49,6 +72,9 @@ exports.handler = async (event) => {
     return respond(400, { error: 'Missing "url"' });
   }
 
+  const deviceName = DEVICES[payload.device] ? payload.device : 'desktop';
+  const device = DEVICES[deviceName];
+
   let targetUrl;
   try {
     targetUrl = new URL(normalizeUrl(url));
@@ -64,6 +90,15 @@ exports.handler = async (event) => {
     browser = await launchBrowser();
 
     const page = await browser.newPage();
+
+    await page.setViewport({
+      width: device.width,
+      height: device.height,
+      deviceScaleFactor: device.deviceScaleFactor,
+      isMobile: device.isMobile,
+      hasTouch: device.hasTouch,
+    });
+    if (device.userAgent) await page.setUserAgent(device.userAgent);
 
     if (user) {
       await page.authenticate({ username: user, password: pass || '' });
@@ -86,21 +121,59 @@ exports.handler = async (event) => {
     }
 
     const { root, schemeNames } = await page.evaluate(() => {
-      const computed = getComputedStyle(document.documentElement);
-      const vars = {};
-      for (const prop of computed) {
-        if (prop.startsWith('--scheme-')) {
-          vars[prop] = computed.getPropertyValue(prop).trim();
+      // Custom properties cannot be discovered by iterating a computed style:
+      // getComputedStyle()'s indexed list contains only standard properties,
+      // so `for (const p of computed)` never yields a --scheme-* name even
+      // when getPropertyValue() resolves it fine. Names have to be gathered
+      // from where they are written, then read back individually.
+      const names = new Set();
+
+      const collectFrom = (rules) => {
+        for (const rule of rules) {
+          if (rule.cssRules) collectFrom(rule.cssRules);
+          // Matches declarations and var() references alike; anything that
+          // does not resolve to a value is dropped below, so a reference to
+          // an undefined variable cannot invent an entry.
+          const found = rule.cssText && rule.cssText.match(/--scheme-[A-Za-z0-9_-]+/g);
+          if (found) found.forEach((name) => names.add(name));
+        }
+      };
+
+      for (const sheet of document.styleSheets) {
+        try {
+          if (sheet.cssRules) collectFrom(sheet.cssRules);
+        } catch (err) {
+          // cross-origin stylesheet, unreadable by design
         }
       }
-      const names = Array.from(
+
+      // Values Vulcan sets on :root at runtime rather than in a stylesheet.
+      const inline = document.documentElement.style;
+      for (let i = 0; i < inline.length; i++) {
+        if (inline[i].indexOf('--scheme-') === 0) names.add(inline[i]);
+      }
+
+      const computed = getComputedStyle(document.documentElement);
+      // Kept in case an engine does enumerate custom properties.
+      for (const prop of computed) {
+        if (prop.indexOf('--scheme-') === 0) names.add(prop);
+      }
+
+      const vars = {};
+      names.forEach((name) => {
+        const value = computed.getPropertyValue(name).trim();
+        if (value) vars[name] = value;
+      });
+
+      const schemes = Array.from(
         new Set(
           Array.from(document.querySelectorAll('[data-color-scheme]')).map((el) =>
             el.getAttribute('data-color-scheme')
           )
         )
       ).filter(Boolean);
-      return { root: vars, schemeNames: names };
+
+      return { root: vars, schemeNames: schemes };
     });
 
     const body = await page.evaluate(() => {
@@ -139,6 +212,7 @@ exports.handler = async (event) => {
       // The full post-redirect URL, so the preview can resolve relative links
       // and assets against the actual page rather than just the origin.
       pageUrl: landedUrl.toString(),
+      device: deviceName,
       schemeNames,
       varCount: Object.keys(root).length,
     });

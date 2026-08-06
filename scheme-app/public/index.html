@@ -85,11 +85,23 @@
     padding: 4px 8px;
     font-size: 12px;
   }
+  /* Its own fixed-height row, deliberately not inside the header. While it
+     lived in that wrapping flex header, any status change could add or remove
+     a header row and move the preview by ~25px. Hovering a link changes the
+     status, so the page shifted under the cursor between hover and click and
+     the click landed on whatever had moved into that spot. */
   #status {
+    flex: 0 0 auto;
+    height: 28px;
+    line-height: 28px;
+    padding: 0 14px;
+    background: var(--app-panel);
+    border-bottom: 1px solid var(--app-border);
     font-size: 12px;
     color: var(--app-muted);
-    margin-left: auto;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   #status.error { color: var(--app-danger); }
   #loginFields { display: none; gap: 8px; align-items: center; }
@@ -214,6 +226,22 @@
   }
   #editorFooter button { flex: 1; }
 
+  #deviceToggle { display: flex; }
+  button.seg {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-muted);
+    border-radius: 0;
+    padding: 7px 12px;
+  }
+  button.seg:first-child { border-radius: 6px 0 0 6px; }
+  button.seg:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+  button.seg.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
+
   #previewWrap {
     flex: 1;
     display: flex;
@@ -226,6 +254,24 @@
     width: 100%;
     height: 100%;
     background: #fff;
+  }
+  /* Narrowing the frame is what makes the page's own media queries fire, so
+     the mobile view is the real responsive layout rather than a scaled
+     screenshot of the desktop one. */
+  #previewWrap.mobile {
+    align-items: center;
+    justify-content: flex-start;
+    background: #0b0d11;
+    padding: 18px 0;
+    overflow: auto;
+  }
+  #previewWrap.mobile #preview {
+    flex: none;
+    width: 390px;
+    height: 844px;
+    max-height: none;
+    border-radius: 20px;
+    box-shadow: 0 0 0 6px #23262e, 0 10px 30px rgba(0, 0, 0, 0.5);
   }
   #placeholder {
     flex: 1;
@@ -360,7 +406,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">nav-v9</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">mobile-v12</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -369,8 +415,12 @@
     </span>
     <button id="loadBtn">Load real page</button>
     <button id="recaptureBtn" class="secondary" title="Re-capture the page currently in the preview" disabled>↻ Recapture</button>
-    <span id="status"></span>
+    <span id="deviceToggle">
+      <button id="desktopBtn" class="seg active" title="Desktop viewport (1440px)">Desktop</button>
+      <button id="mobileBtn" class="seg" title="Mobile viewport (390px)">Mobile</button>
+    </span>
   </header>
+  <div id="status"></div>
 
   <div id="body">
     <div id="editorPanel">
@@ -426,6 +476,9 @@
     hoverHref: null,
     lastStatus: '',
     ruleIndex: null,
+    device: 'desktop',
+    capturedDevice: 'desktop',
+    loading: false,
   };
 
   var OVERLAY_ID = 'scheme-app-inspect-overlay';
@@ -438,6 +491,9 @@
     passInput: document.getElementById('passInput'),
     loadBtn: document.getElementById('loadBtn'),
     recaptureBtn: document.getElementById('recaptureBtn'),
+    desktopBtn: document.getElementById('desktopBtn'),
+    mobileBtn: document.getElementById('mobileBtn'),
+    previewWrap: document.getElementById('previewWrap'),
     status: document.getElementById('status'),
     filterInput: document.getElementById('filterInput'),
     groups: document.getElementById('groups'),
@@ -471,6 +527,13 @@
     // Deliberately ignores the input box - this re-pulls the page that is
     // actually on screen, even if something else has been typed since.
     if (state.pageUrl) loadPage(state.pageUrl);
+  });
+
+  els.desktopBtn.addEventListener('click', function () {
+    setDevice('desktop');
+  });
+  els.mobileBtn.addEventListener('click', function () {
+    setDevice('mobile');
   });
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
@@ -568,10 +631,19 @@
       setStatus('Enter a URL first', true);
       return;
     }
+    // Only the Load button used to be disabled while a capture ran, so
+    // Recapture or a link click could start a second one. Two in flight
+    // interleave: each snapshots edits from whatever state it saw, and
+    // whichever finishes last wins, leaving pageUrl from one page beside the
+    // body of another.
+    if (state.loading) return;
+    state.loading = true;
+
     url = normalizeUrl(url);
     els.urlInput.value = url;
     setStatus('Loading real page… this can take a few seconds');
     els.loadBtn.disabled = true;
+    els.recaptureBtn.disabled = true;
 
     // Edits are carried onto the next page so a scheme in progress can be
     // checked across several pages without re-entering it each time.
@@ -580,7 +652,7 @@
       if (state.current[name] !== state.original[name]) edits[name] = state.current[name];
     });
 
-    var payload = { url: url };
+    var payload = { url: url, device: state.device };
     if (els.loginFields.classList.contains('open') && els.userInput.value) {
       payload.user = els.userInput.value;
       payload.pass = els.passInput.value;
@@ -612,6 +684,7 @@
       state.body = data.body || '';
       state.base = data.base || '';
       state.pageUrl = data.pageUrl || url;
+      state.capturedDevice = data.device || state.device;
       state.schemeNames = data.schemeNames || [];
       els.recaptureBtn.disabled = false;
       // Spell out the target, so it is clear this is tied to the previewed
@@ -630,7 +703,7 @@
       renderGroups();
       renderPreview();
       setStatus(
-        data.varCount + ' variables loaded' +
+        data.varCount + ' variables loaded (' + state.capturedDevice + ')' +
         (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
         (carried ? ' · ' + carried + ' edit' + (carried === 1 ? '' : 's') + ' kept' : '') +
         (state.inspecting ? ' · click an element to inspect, a link to browse' : '')
@@ -638,7 +711,11 @@
     } catch (err) {
       setStatus(err.message || 'Failed to load page', true);
     } finally {
+      state.loading = false;
       els.loadBtn.disabled = false;
+      // Stays disabled after a first failed capture, since there is still no
+      // previewed page to re-pull.
+      els.recaptureBtn.disabled = !state.pageUrl;
     }
   }
 
@@ -647,6 +724,9 @@
     // links and assets in a subdirectory resolve the way they do on the
     // real site.
     var doc = '<!doctype html><html><head><base href="' + (state.pageUrl || state.base + '/') + '">' +
+      // Without this the iframe uses a desktop-sized layout viewport and
+      // width-based media queries never fire at phone widths.
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<style id="scheme-app-css">' + state.css + '</style>' +
       '<style id="scheme-app-vars">' + buildRootBlock(state.current) + '</style>' +
       '</head><body>' + state.body + '</body></html>';
@@ -817,6 +897,26 @@
     // every instance showing the same value.
     var rows = document.querySelectorAll('[data-var="' + name + '"]');
     for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
+  }
+
+  function setDevice(device) {
+    if (state.device === device) return;
+    state.device = device;
+
+    els.desktopBtn.classList.toggle('active', device === 'desktop');
+    els.mobileBtn.classList.toggle('active', device === 'mobile');
+    els.previewWrap.classList.toggle('mobile', device === 'mobile');
+
+    // Resizing alone re-runs the page's media queries, which is the part that
+    // matters for scheme work. Markup and asset choices were fixed at capture
+    // time by the device's user-agent though, so say when those no longer
+    // match rather than presenting a half-mobile view as the real thing.
+    if (state.pageUrl && state.capturedDevice !== device) {
+      setStatus('Showing ' + device + ' width · captured as ' + state.capturedDevice +
+        ' — press ↻ Recapture for true ' + device + ' markup');
+    } else if (state.pageUrl) {
+      setStatus(device + ' view');
+    }
   }
 
   function previewDoc() {
