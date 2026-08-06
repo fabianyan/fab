@@ -28,8 +28,8 @@ npm install
 npm run dev        # runs `netlify dev`
 ```
 
-Open the local URL, paste a page (e.g. `https://www.casino.com/zh/`), click
-**Load real page**. The editor should populate with the page's
+Open the local URL, paste a page (e.g. `www.casino.com/zh/` — the
+`https://` is optional), click **Load real page**. The editor should populate with the page's
 `--scheme-*` variables grouped by family; editing a value should repaint the
 iframe immediately.
 

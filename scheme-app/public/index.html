@@ -349,8 +349,8 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v5</span></h1>
-    <input id="urlInput" type="text" placeholder="https://www.example.com/page" />
+    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v6</span></h1>
+    <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
       <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
@@ -510,12 +510,22 @@
     return null;
   }
 
+  // Mirrors normalizeUrl in the capture function so the box shows the URL
+  // that was actually loaded rather than the bare host that was typed.
+  function normalizeUrl(raw) {
+    var trimmed = String(raw).trim();
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+    return 'https://' + trimmed.replace(/^\/+/, '');
+  }
+
   async function loadPage() {
     var url = els.urlInput.value.trim();
     if (!url) {
       setStatus('Enter a URL first', true);
       return;
     }
+    url = normalizeUrl(url);
+    els.urlInput.value = url;
     setStatus('Loading real page… this can take a few seconds');
     els.loadBtn.disabled = true;
 

@@ -51,9 +51,9 @@ exports.handler = async (event) => {
 
   let targetUrl;
   try {
-    targetUrl = new URL(url);
+    targetUrl = new URL(normalizeUrl(url));
   } catch (err) {
-    return respond(400, { error: 'Invalid URL' });
+    return respond(400, { error: 'Invalid URL: ' + url });
   }
   if (!/^https?:$/.test(targetUrl.protocol)) {
     return respond(400, { error: 'URL must be http or https' });
@@ -140,6 +140,16 @@ exports.handler = async (event) => {
     }
   }
 };
+
+// Accepts what people actually paste: "casino.com", "www.casino.com/zh/".
+// A bare host has no scheme for `new URL` to parse, so default it to https.
+// Anything that already carries a scheme is left alone, so a non-http one
+// still fails the protocol check below rather than being silently rewritten.
+function normalizeUrl(raw) {
+  const trimmed = String(raw).trim();
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+  return 'https://' + trimmed.replace(/^\/+/, '');
+}
 
 function stripRootBlocks(css) {
   return css.replace(/:root\s*\{[^}]*\}/g, '');
