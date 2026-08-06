@@ -56,8 +56,9 @@ iframe immediately.
    pointing at the page's origin so relative assets resolve. Editing a
    variable calls `iframe.contentDocument.documentElement.style.setProperty`
    directly for an instant repaint (no full reload).
-6. **Export :root** dumps the current (possibly edited) variable set as a
-   `:root { ... }` block you can copy and hand to engineering.
+6. **Export changes…** offers the edit as changed-only CSS, changed-only JSON
+   (name/value pairs), or the full `:root` block, each copyable or
+   downloadable.
 
 ## The editor panel
 
@@ -103,6 +104,11 @@ where a variant declares no family or size, the fallback is the captured page's
 own body value, and the page's `@font-face` rules are copied in (with relative
 `url()`s rewritten to absolute) so specimens render in the site's real
 typeface. Absent both, the property is left unset rather than invented.
+
+Every captured variable gets an editable row, including the tokens behind a
+type specimen — this is an editing tool, so nothing is read-only and nothing is
+hidden behind an expander by default. Clicking a specimen collapses its tokens
+when you want to compare sizes without the noise.
 
 Full names remain the keys in state, the `data-var` attributes, and what
 **Export :root** writes, so exported declarations stay complete and

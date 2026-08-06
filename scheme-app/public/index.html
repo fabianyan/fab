@@ -408,8 +408,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .type-vars { display: none; }
-  .type-vars.open { display: block; }
+  .type-vars { display: block; }
+  .type-vars.collapsed { display: none; }
 
   #svCopied {
     position: fixed;
@@ -527,6 +527,13 @@
     max-width: 90vw;
   }
   #exportBox h2 { margin: 0 0 10px; font-size: 14px; }
+  #exportModes { display: flex; margin-bottom: 8px; }
+  #exportSummary {
+    font-size: 12px;
+    color: var(--app-muted);
+    margin-bottom: 8px;
+    min-height: 16px;
+  }
   #exportText {
     width: 100%;
     height: 260px;
@@ -550,7 +557,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">type-v19</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">edit-v20</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -590,7 +597,7 @@
       <div id="groups"></div>
       <div id="editorFooter">
         <button id="resetAllBtn" class="secondary">Reset all</button>
-        <button id="exportBtn">Export :root</button>
+        <button id="exportBtn">Export changes…</button>
       </div>
     </div>
     <div id="previewWrap">
@@ -604,10 +611,17 @@
 
 <div id="exportModal">
   <div id="exportBox">
-    <h2>Exported :root block</h2>
+    <h2>Export</h2>
+    <div id="exportModes">
+      <button class="seg" data-mode="changed-css">Changed CSS</button>
+      <button class="seg" data-mode="changed-json">Changed JSON</button>
+      <button class="seg" data-mode="all-css">Full :root</button>
+    </div>
+    <div id="exportSummary"></div>
     <textarea id="exportText" readonly spellcheck="false"></textarea>
     <div id="exportActions">
       <button id="exportCloseBtn" class="secondary">Close</button>
+      <button id="exportDownloadBtn" class="secondary">Download</button>
       <button id="exportCopyBtn">Copy</button>
     </div>
   </div>
@@ -633,6 +647,7 @@
     capturedDevice: 'desktop',
     loading: false,
     backdrop: 'dark',
+    exportMode: 'changed-css',
     pageFont: '',
     pageFontSize: '',
   };
@@ -690,6 +705,9 @@
     exportText: document.getElementById('exportText'),
     exportCloseBtn: document.getElementById('exportCloseBtn'),
     exportCopyBtn: document.getElementById('exportCopyBtn'),
+    exportDownloadBtn: document.getElementById('exportDownloadBtn'),
+    exportModes: document.getElementById('exportModes'),
+    exportSummary: document.getElementById('exportSummary'),
     inspectBtn: document.getElementById('inspectBtn'),
     inspector: document.getElementById('inspector'),
     inspectorTag: document.getElementById('inspectorTag'),
@@ -737,6 +755,14 @@
   els.exportBtn.addEventListener('click', openExport);
   els.exportCloseBtn.addEventListener('click', closeExport);
   els.exportCopyBtn.addEventListener('click', copyExport);
+  els.exportDownloadBtn.addEventListener('click', downloadExport);
+  els.exportModes.addEventListener('click', function (e) {
+    var mode = e.target.getAttribute('data-mode');
+    if (mode) {
+      state.exportMode = mode;
+      renderExport();
+    }
+  });
 
   els.inspectBtn.addEventListener('click', function () {
     setInspecting(!state.inspecting);
@@ -1125,7 +1151,7 @@
         var specimen = document.createElement('p');
         specimen.className = 'type-specimen';
         specimen.textContent = SPECIMEN_TEXT;
-        specimen.title = 'Click to edit these variables';
+        specimen.title = 'Click to collapse or show these variables';
         styleEl.appendChild(specimen);
 
         var vars = document.createElement('div');
@@ -1138,7 +1164,7 @@
         styleEl.appendChild(vars);
 
         var toggle = function () {
-          vars.classList.toggle('open');
+          vars.classList.toggle('collapsed');
         };
         head.addEventListener('click', toggle);
         specimen.addEventListener('click', toggle);
@@ -1909,9 +1935,70 @@
     row.classList.add('flash');
   }
 
+  function changedVars() {
+    var out = {};
+    Object.keys(state.current).forEach(function (name) {
+      if (state.current[name] !== state.original[name]) out[name] = state.current[name];
+    });
+    return out;
+  }
+
   function openExport() {
-    els.exportText.value = buildRootBlock(state.current);
+    // Applying a scheme means applying what changed, so that leads; the full
+    // block stays available for handing on a whole scheme.
+    var changes = changedVars();
+    state.exportMode = Object.keys(changes).length ? 'changed-css' : 'all-css';
+    renderExport();
     els.exportModal.classList.add('open');
+  }
+
+  function renderExport() {
+    var changes = changedVars();
+    var count = Object.keys(changes).length;
+
+    var buttons = els.exportModes.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle('active', buttons[i].getAttribute('data-mode') === state.exportMode);
+    }
+
+    if (state.exportMode === 'all-css') {
+      els.exportText.value = buildRootBlock(state.current);
+      els.exportSummary.textContent =
+        Object.keys(state.current).length + ' variables — the whole captured scheme.';
+    } else if (state.exportMode === 'changed-json') {
+      els.exportText.value = count ? JSON.stringify(changes, null, 2) : '{}';
+      els.exportSummary.textContent = count
+        ? count + ' changed variable' + (count === 1 ? '' : 's') + ' as name/value pairs.'
+        : 'Nothing changed yet.';
+    } else {
+      els.exportText.value = count ? buildRootBlock(changes) : '';
+      els.exportSummary.textContent = count
+        ? count + ' changed variable' + (count === 1 ? '' : 's') + ' — only these differ from the page.'
+        : 'Nothing changed yet.';
+    }
+  }
+
+  function downloadExport() {
+    var isJson = state.exportMode === 'changed-json';
+    var host = 'scheme';
+    try {
+      host = new URL(state.pageUrl).hostname.replace(/^www\./, '');
+    } catch (err) {
+      // keep the fallback
+    }
+
+    var blob = new Blob([els.exportText.value], {
+      type: isJson ? 'application/json' : 'text/css',
+    });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = host + '-scheme' + (isJson ? '.json' : '.css');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () {
+      URL.revokeObjectURL(link.href);
+    }, 1000);
   }
 
   function closeExport() {
