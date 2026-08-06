@@ -15,7 +15,7 @@ page's HTML/CSS plus those variables.
 ## Project structure
 
 ```
-public/index.html               frontend: URL box, "+ Login", editor, live iframe
+public/index.html               frontend: URL box, "Basic Auth", editor, live iframe
 netlify/functions/capture.js    POST {url,user,pass} -> {root, css, body, base, schemeNames, varCount}
 netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, 30s timeout
 package.json                    deps: @sparticuz/chromium, puppeteer-core
