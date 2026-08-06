@@ -16,7 +16,7 @@ page's HTML/CSS plus those variables.
 
 ```
 public/index.html               frontend: URL box, "Basic Auth", editor, live iframe
-netlify/functions/capture.js    POST {url,user,pass} -> {root, css, body, base, pageUrl, schemeNames, varCount}
+netlify/functions/capture.js    POST {url,user,pass,device} -> {root, css, body, base, pageUrl, device, pageFont, schemeNames, varCount}
 netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, 30s timeout
 package.json                    deps: @sparticuz/chromium, puppeteer-core
 ```
@@ -59,20 +59,44 @@ iframe immediately.
 6. **Export :root** dumps the current (possibly edited) variable set as a
    `:root { ... }` block you can copy and hand to engineering.
 
-## Variable labels
+## The editor panel
 
-Rows show the name without the `--scheme-` prefix that every variable shares,
-and truncate at the *front* rather than the end. Names here differ in their
-last segment — `…-font-size` against `…-font-family` — so ellipsising the tail
-hid precisely the part that tells two rows apart, leaving what looked like
-duplicate entries. The last segment is rendered as its own non-shrinking span
-so it always survives; only the head collapses, and it is dimmed to keep the
-distinguishing part prominent.
+The panel is the scheme's spec sheet as well as its editor. Each row carries a
+swatch, the token's own name in bold, the complete variable name beneath it,
+and the editable value — so nothing is truncated away and two tokens whose
+names differ only in a final segment cannot read as duplicates. Clicking the
+variable name copies it; clicking the bold name jumps to the row from the
+inspector.
 
-This is display only. The full name stays the key in state, the row's
-`data-var`, the hover tooltip, and what **Export :root** writes, so exported
-declarations remain complete and paste-ready. Filtering also still matches
-against the full name, so searching `scheme-typography` works.
+**Swatch legibility.** A 20px square on one fixed background cannot show this
+kind of palette: `#060606` disappears on a dark panel and `#FFFFFF` on a light
+one, and translucent values look opaque. Swatches are therefore larger, sit on
+a checkerboard so anything semi-transparent reads as such, and carry a two-tone
+ring — light inside, dark outside — that holds an edge against both extremes.
+The colour is painted on an inner element so it never covers the checkerboard.
+A **Dark | Light** backdrop toggle flips the panel itself, because no single
+background suits every value. Rows whose value is not a colour show no swatch
+rather than an empty square.
+
+**Type specimens.** Typography variables arrive as separate tokens — 
+`…-buttonBig-desktop-font-size`, `-line-height`, `-font-weight` — which say
+very little read one at a time. They are gathered back into sets by their
+common stem and shown as a rendered line of text at that exact size, weight,
+line height and family, with the numbers summarised (`20px / 140% / 400`) and
+each member still editable beneath. Editing one updates the specimen
+immediately.
+
+Everything a specimen displays comes from the capture, never from this app:
+where a set declares no family or size, the fallback is the captured page's own
+body value, and the page's `@font-face` rules are copied in (with relative
+`url()`s rewritten to absolute) so specimens render in the site's real
+typeface. If a set specifies neither and the page reported nothing, the
+property is left unset rather than invented.
+
+Full names remain the keys in state, the `data-var` attributes, and what
+**Export :root** writes, so exported declarations stay complete and
+paste-ready. Filtering still matches the full name, so `scheme-typography`
+works as a search.
 
 ## Browsing between pages
 

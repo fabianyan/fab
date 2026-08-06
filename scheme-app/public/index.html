@@ -113,7 +113,7 @@
     min-height: 0;
   }
   #editorPanel {
-    width: 380px;
+    width: 430px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -162,55 +162,66 @@
   .row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 0;
+    gap: 10px;
+    padding: 7px 0;
   }
-  .row .swatch {
-    width: 20px;
-    height: 20px;
+  .row-main { flex: 1 1 auto; min-width: 0; }
+  /* A swatch has to stay legible whatever it holds: #060606 on a dark panel,
+     #FFFFFF on a light one, and semi-transparent values in between. The
+     checkerboard shows through anything translucent, and the two-tone ring
+     (light inside, dark outside) keeps an edge against both extremes. The
+     colour itself goes on an inner .fill so it never overwrites the
+     checkerboard. */
+  .swatch {
+    width: 34px;
+    height: 34px;
     border-radius: 5px;
-    border: 1px solid var(--app-border);
     flex-shrink: 0;
     padding: 0;
     position: relative;
     overflow: hidden;
-    background: #fff;
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,0.18) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 75%),
+      linear-gradient(45deg, rgba(0,0,0,0.18) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 4px 4px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+      0 0 0 1px rgba(0, 0, 0, 0.55);
+  }
+  .swatch .fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
   }
   .row .swatch input[type="color"] {
     position: absolute;
     inset: -4px;
     border: none;
     padding: 0;
-    width: 28px;
-    height: 28px;
+    width: 42px;
+    height: 42px;
     cursor: pointer;
+    opacity: 0;
   }
-  /* The visible label drops the `--scheme-` prefix every variable shares, and
-     truncates at the front rather than the end. Names in this scheme differ in
-     their last segment (…-font-size vs …-font-family), so ellipsising the tail
-     hid exactly the part that tells them apart. The last segment is a separate
-     non-shrinking span so it always survives; only the head collapses. The
-     stored key keeps its full name - this is display only. */
+  .row .swatch { cursor: pointer; }
+  /* Two lines: the distinguishing segment in full, then the complete variable
+     name underneath. Nothing is truncated away, so names that differ only in
+     their last segment cannot read as duplicates. */
   .row .name {
-    flex: 1 1 auto;
-    display: flex;
-    min-width: 0;
-    font-size: 11.5px;
-    color: var(--app-text);
-    white-space: nowrap;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--panel-fg);
+    cursor: pointer;
+    overflow-wrap: anywhere;
   }
-  .row .name .head {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--app-muted);
-  }
-  .row .name .tail { flex: 0 0 auto; }
   .row .value {
-    width: 110px;
+    width: 104px;
     flex-shrink: 0;
     background: var(--app-bg);
-    border: 1px solid var(--app-border);
-    color: var(--app-text);
+    border: 1px solid var(--panel-line);
+    color: var(--panel-fg);
     border-radius: 5px;
     padding: 4px 6px;
     font-size: 11.5px;
@@ -294,6 +305,104 @@
     text-align: center;
     padding: 40px;
   }
+
+  /* The editor panel doubles as the scheme's spec sheet, so it carries its own
+     backdrop that can be flipped independently of the app chrome. A near-black
+     value is unreadable on a dark panel and a near-white one on a light panel,
+     and no single choice suits both. */
+  #editorPanel.light {
+    --panel-bg: #f7f7f8;
+    --panel-fg: #16181d;
+    --panel-line: #e2e4e8;
+    --panel-card: #ffffff;
+    --panel-dim: #6b7080;
+  }
+  #editorPanel {
+    --panel-bg: var(--app-panel);
+    --panel-fg: var(--app-text);
+    --panel-line: var(--app-border);
+    --panel-card: #191c23;
+    --panel-dim: var(--app-muted);
+    background: var(--panel-bg);
+    color: var(--panel-fg);
+  }
+  #editorPanel.light #filterInput,
+  #editorPanel.light .row .value {
+    background: #fff;
+    color: var(--panel-fg);
+    border-color: var(--panel-line);
+  }
+
+  #backdropBar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  #backdropBar .sv-hint { font-size: 11px; color: var(--panel-dim); }
+  #backdropBar button.seg { padding: 4px 10px; font-size: 12px; }
+
+  .sv-count { font-weight: 400; color: var(--panel-dim); }
+  .sv-var {
+    font-size: 10.5px;
+    color: var(--panel-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+  }
+
+  /* Type sets are shown as one specimen with its member variables beneath, so
+     size, weight and line height are judged together rather than as three
+     unrelated numbers. */
+  .type-set {
+    border-bottom: 1px solid var(--panel-line);
+    padding: 12px;
+    background: var(--panel-card);
+  }
+  .type-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .type-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+  }
+  .type-spec {
+    font-size: 11px;
+    color: var(--panel-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  /* Everything shown here comes from the captured values, so this rule must
+     not set any of the properties being demonstrated. */
+  .type-specimen {
+    margin: 0 0 8px;
+    color: var(--panel-fg);
+    overflow-wrap: anywhere;
+  }
+
+  #svCopied {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--app-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 20;
+  }
+  #svCopied.show { opacity: 1; }
 
   #inspectBtn.active {
     background: var(--app-accent);
@@ -417,7 +526,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">labels-v14</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">panel-v16</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -439,6 +548,13 @@
         <input id="filterInput" type="text" placeholder="Filter variables…" />
         <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it">Inspect</button>
       </div>
+      <div id="backdropBar">
+        <span id="backdropToggle">
+          <button id="darkBackdropBtn" class="seg active" title="Judge colours against a dark background">Dark</button>
+          <button id="lightBackdropBtn" class="seg" title="Judge colours against a light background">Light</button>
+        </span>
+        <span class="sv-hint">backdrop</span>
+      </div>
       <div id="inspector">
         <div id="inspectorHead">
           <span id="inspectorTag"></span>
@@ -459,6 +575,8 @@
     </div>
   </div>
 </div>
+
+<div id="svCopied"></div>
 
 <div id="exportModal">
   <div id="exportBox">
@@ -490,7 +608,19 @@
     device: 'desktop',
     capturedDevice: 'desktop',
     loading: false,
+    backdrop: 'dark',
+    pageFont: '',
+    pageFontSize: '',
   };
+
+  // Trailing tokens that identify which text property a typography variable
+  // carries, so `--scheme-typography-buttonBig-mobile-font-size` and its
+  // siblings can be gathered back into one specimen.
+  var TYPE_PROPS = [
+    'font-size', 'line-height', 'font-weight', 'font-family',
+    'letter-spacing', 'text-transform', 'font-style',
+  ];
+  var SPECIMEN_TEXT = 'The quick brown fox jumps over the lazy dog';
 
   var OVERLAY_ID = 'scheme-app-inspect-overlay';
 
@@ -510,6 +640,10 @@
     desktopBtn: document.getElementById('desktopBtn'),
     mobileBtn: document.getElementById('mobileBtn'),
     previewWrap: document.getElementById('previewWrap'),
+    editorPanel: document.getElementById('editorPanel'),
+    lightBackdropBtn: document.getElementById('lightBackdropBtn'),
+    darkBackdropBtn: document.getElementById('darkBackdropBtn'),
+    svCopied: document.getElementById('svCopied'),
     status: document.getElementById('status'),
     filterInput: document.getElementById('filterInput'),
     groups: document.getElementById('groups'),
@@ -533,6 +667,8 @@
     els.loginFields.classList.toggle('open');
   });
 
+  setBackdrop(state.backdrop);
+
   els.urlInput.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') loadPage(els.urlInput.value);
   });
@@ -550,6 +686,12 @@
   });
   els.mobileBtn.addEventListener('click', function () {
     setDevice('mobile');
+  });
+  els.lightBackdropBtn.addEventListener('click', function () {
+    setBackdrop('light');
+  });
+  els.darkBackdropBtn.addEventListener('click', function () {
+    setBackdrop('dark');
   });
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
@@ -701,6 +843,8 @@
       state.base = data.base || '';
       state.pageUrl = data.pageUrl || url;
       state.capturedDevice = data.device || state.device;
+      state.pageFont = data.pageFont || '';
+      state.pageFontSize = data.pageFontSize || '';
       state.schemeNames = data.schemeNames || [];
       els.recaptureBtn.disabled = false;
       // Spell out the target, so it is clear this is tied to the previewed
@@ -718,6 +862,9 @@
 
       renderGroups();
       renderPreview();
+      // Type specimens should use the site's real faces, which only exist in
+      // the captured stylesheets.
+      adoptFontFaces(state.css, state.pageUrl);
       setStatus(
         data.varCount + ' variables loaded (' + state.capturedDevice + ')' +
         (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
@@ -733,6 +880,38 @@
       // previewed page to re-pull.
       els.recaptureBtn.disabled = !state.pageUrl;
     }
+  }
+
+  // Copies the captured @font-face rules into this document so specimens
+  // render in the site's own typeface rather than a system fallback. Relative
+  // url()s are rewritten against the captured page, since they were written
+  // relative to the stylesheet's origin, not to this app.
+  function adoptFontFaces(css, pageUrl) {
+    var el = document.getElementById('adoptedFonts');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'adoptedFonts';
+      document.head.appendChild(el);
+    }
+
+    var blocks = (css || '').match(/@font-face\s*\{[^}]*\}/g);
+    if (!blocks) {
+      el.textContent = '';
+      return;
+    }
+
+    el.textContent = blocks
+      .map(function (block) {
+        return block.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, function (whole, quote, ref) {
+          if (/^(data:|https?:|\/\/)/i.test(ref)) return whole;
+          try {
+            return 'url("' + new URL(ref, pageUrl).toString() + '")';
+          } catch (err) {
+            return whole;
+          }
+        });
+      })
+      .join('\n');
   }
 
   function renderPreview() {
@@ -781,28 +960,52 @@
 
   function renderGroups() {
     var filter = els.filterInput.value.trim().toLowerCase();
-    var names = Object.keys(state.current).sort();
-    var groups = {};
-
-    names.forEach(function (name) {
-      if (filter && name.toLowerCase().indexOf(filter) === -1) return;
-      var fam = familyOf(name);
-      if (!groups[fam]) groups[fam] = [];
-      groups[fam].push(name);
+    var all = Object.keys(state.current).sort();
+    var visible = all.filter(function (name) {
+      return !filter || name.toLowerCase().indexOf(filter) !== -1;
     });
 
-    var familyNames = Object.keys(groups).sort();
     els.groups.innerHTML = '';
 
-    if (!familyNames.length) {
+    if (!visible.length) {
       var empty = document.createElement('div');
-      empty.style.cssText = 'padding:16px;color:var(--app-muted);font-size:12px;';
-      empty.textContent = names.length ? 'No variables match your filter.' : 'Load a page to see its scheme variables.';
+      empty.style.cssText = 'padding:16px;color:var(--panel-dim);font-size:12px;';
+      empty.textContent = all.length ? 'No variables match your filter.' : 'Load a page to see its scheme variables.';
       els.groups.appendChild(empty);
       return;
     }
 
-    familyNames.forEach(function (fam) {
+    // Typography variables are shown as sets with a rendered specimen, so they
+    // are pulled out of the plain family grouping first. Sets are built from
+    // every variable, not just the visible ones, so a specimen keeps rendering
+    // with its real size and weight while a filter narrows which members are
+    // listed for editing.
+    var sets = typographySets().filter(function (set) {
+      return memberNames(set).some(function (n) {
+        return visible.indexOf(n) !== -1;
+      });
+    });
+
+    var claimed = {};
+    sets.forEach(function (set) {
+      memberNames(set).forEach(function (n) {
+        claimed[n] = true;
+      });
+    });
+
+    var groups = {};
+    var order = [];
+    visible.forEach(function (name) {
+      if (claimed[name]) return;
+      var fam = familyOf(name);
+      if (!groups[fam]) {
+        groups[fam] = [];
+        order.push(fam);
+      }
+      groups[fam].push(name);
+    });
+
+    order.sort().forEach(function (fam) {
       var groupEl = document.createElement('div');
       groupEl.className = 'group';
 
@@ -816,7 +1019,6 @@
 
       var rowsEl = document.createElement('div');
       rowsEl.className = 'group-rows';
-
       groups[fam].forEach(function (name) {
         rowsEl.appendChild(buildRow(name));
       });
@@ -824,6 +1026,69 @@
       groupEl.appendChild(rowsEl);
       els.groups.appendChild(groupEl);
     });
+
+    if (sets.length) renderTypeSets(sets, visible);
+  }
+
+  function memberNames(set) {
+    return Object.keys(set.props).map(function (p) {
+      return set.props[p];
+    });
+  }
+
+  function renderTypeSets(sets, visible) {
+    var groupEl = document.createElement('div');
+    groupEl.className = 'group';
+
+    var header = document.createElement('div');
+    header.className = 'group-header';
+    header.innerHTML = '<span>typography</span><span class="group-count">' + sets.length + '</span>';
+    header.addEventListener('click', function () {
+      groupEl.classList.toggle('collapsed');
+    });
+    groupEl.appendChild(header);
+
+    var rowsEl = document.createElement('div');
+    rowsEl.className = 'group-rows';
+    rowsEl.style.padding = '0';
+
+    sets.forEach(function (set) {
+      var block = document.createElement('div');
+      block.className = 'type-set';
+
+      var head = document.createElement('div');
+      head.className = 'type-head';
+
+      var label = document.createElement('span');
+      label.className = 'type-label';
+      label.textContent = set.stem;
+      head.appendChild(label);
+
+      var spec = document.createElement('span');
+      spec.className = 'type-spec';
+      head.appendChild(spec);
+      block.appendChild(head);
+
+      var specimen = document.createElement('p');
+      specimen.className = 'type-specimen';
+      specimen.textContent = SPECIMEN_TEXT;
+      block.appendChild(specimen);
+
+      block._set = set;
+      block._spec = spec;
+      block._specimen = specimen;
+      applyTypeSet(block);
+
+      memberNames(set).sort().forEach(function (n) {
+        if (visible.indexOf(n) === -1) return;
+        block.appendChild(buildRow(n));
+      });
+
+      rowsEl.appendChild(block);
+    });
+
+    groupEl.appendChild(rowsEl);
+    els.groups.appendChild(groupEl);
   }
 
   // One row control per variable, used by both the main list and the
@@ -837,11 +1102,26 @@
     var swatch = document.createElement('div');
     swatch.className = 'swatch';
 
+    var main = document.createElement('div');
+    main.className = 'row-main';
+
     var label = document.createElement('div');
     label.className = 'name';
-    label.appendChild(buildVarLabel(name));
-    // Hover still gives the real name, prefix included.
+    label.textContent = lastSegment(name);
     label.title = name;
+    main.appendChild(label);
+
+    // The complete name, always shown rather than truncated, so it can be read
+    // and copied without hovering.
+    var varLine = document.createElement('div');
+    varLine.className = 'sv-var';
+    varLine.textContent = name;
+    varLine.title = 'Click to copy this variable name';
+    varLine.style.cursor = 'pointer';
+    varLine.addEventListener('click', function () {
+      copyVarName(name);
+    });
+    main.appendChild(varLine);
 
     var input = document.createElement('input');
     input.className = 'value';
@@ -859,7 +1139,7 @@
     });
 
     row.appendChild(swatch);
-    row.appendChild(label);
+    row.appendChild(main);
     row.appendChild(input);
     row.appendChild(resetBtn);
 
@@ -872,25 +1152,13 @@
     return row;
   }
 
-  // Purely presentational. `name` remains the key in state.current and the
-  // row's data-var, so Export :root still writes the full `--scheme-*` name.
-  function buildVarLabel(name) {
-    var frag = document.createDocumentFragment();
+  // The mockup's label: just the segment that names this token. The full
+  // variable name is shown on its own line beneath, so nothing is hidden and
+  // two tokens sharing a last segment are still told apart by that line.
+  function lastSegment(name) {
     var short = name.replace(/^--scheme-/, '');
-    var cut = short.lastIndexOf('-');
-
-    var head = document.createElement('span');
-    head.className = 'head';
-    head.textContent = cut > 0 ? short.slice(0, cut) : short;
-    frag.appendChild(head);
-
-    if (cut > 0) {
-      var tail = document.createElement('span');
-      tail.className = 'tail';
-      tail.textContent = short.slice(cut);
-      frag.appendChild(tail);
-    }
-    return frag;
+    var parts = short.split('-');
+    return parts.length > 1 ? parts[parts.length - 1] : short;
   }
 
   function refreshRow(row) {
@@ -904,10 +1172,16 @@
 
     var swatch = row._nameSwatch;
     var picker = swatch.querySelector('input[type="color"]');
+    var fill = swatch.querySelector('.fill');
+    if (!fill) {
+      fill = document.createElement('span');
+      fill.className = 'fill';
+      swatch.insertBefore(fill, swatch.firstChild);
+    }
 
     if (isColorValue(value)) {
-      swatch.style.background = value;
-      swatch.style.border = '1px solid var(--app-border)';
+      fill.style.background = value;
+      swatch.style.display = '';
       var hex = toHexColor(value);
       if (hex && !picker) {
         picker = document.createElement('input');
@@ -923,8 +1197,10 @@
       if (picker && !hex) swatch.removeChild(picker);
     } else {
       if (picker) swatch.removeChild(picker);
-      swatch.style.background = 'transparent';
-      swatch.style.border = '1px dashed var(--app-border)';
+      // Not a colour: drop the square entirely rather than leave an empty
+      // checkerboard implying one.
+      fill.style.background = 'transparent';
+      swatch.style.display = 'none';
     }
   }
 
@@ -935,6 +1211,103 @@
     // every instance showing the same value.
     var rows = document.querySelectorAll('[data-var="' + name + '"]');
     for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
+    refreshTypeSets(name);
+  }
+
+  function setBackdrop(backdrop) {
+    state.backdrop = backdrop;
+    els.editorPanel.classList.toggle('light', backdrop === 'light');
+    els.lightBackdropBtn.classList.toggle('active', backdrop === 'light');
+    els.darkBackdropBtn.classList.toggle('active', backdrop === 'dark');
+  }
+
+  function copyVarName(name) {
+    var write = navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(name)
+      : Promise.reject();
+    write.catch(function () {
+      var ta = document.createElement('textarea');
+      ta.value = name;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (err) { /* nothing else to try */ }
+      document.body.removeChild(ta);
+    });
+
+    els.svCopied.textContent = 'Copied ' + name;
+    els.svCopied.classList.add('show');
+    clearTimeout(state.copiedTimer);
+    state.copiedTimer = setTimeout(function () {
+      els.svCopied.classList.remove('show');
+    }, 1400);
+  }
+
+  // Gathers `--scheme-typography-<stem>-<prop>` families back into one entry
+  // per stem, so a specimen can be rendered with the real size, weight and
+  // line height together instead of three unrelated numbers.
+  function typographySets() {
+    var sets = {};
+    var order = [];
+
+    Object.keys(state.current).forEach(function (name) {
+      for (var i = 0; i < TYPE_PROPS.length; i++) {
+        var prop = TYPE_PROPS[i];
+        var suffix = '-' + prop;
+        if (name.length <= suffix.length) continue;
+        if (name.slice(-suffix.length) !== suffix) continue;
+
+        var stem = name.slice(0, -suffix.length).replace(/^--scheme-(typography-|font-)?/, '');
+        if (!stem) continue;
+        if (!sets[stem]) {
+          sets[stem] = { stem: stem, props: {} };
+          order.push(stem);
+        }
+        sets[stem].props[prop] = name;
+        return;
+      }
+    });
+
+    return order.sort().map(function (stem) {
+      return sets[stem];
+    });
+  }
+
+  function applyTypeSet(block) {
+    var props = block._set.props;
+    var value = function (prop) {
+      return props[prop] ? state.current[props[prop]] : '';
+    };
+
+    var specimen = block._specimen;
+    // Both fallbacks are the captured page's own body values, so a specimen
+    // never renders at a size or in a face this app invented. Where the page
+    // gave nothing, nothing is set.
+    specimen.style.fontSize = value('font-size') || state.pageFontSize || '';
+    specimen.style.lineHeight = value('line-height');
+    specimen.style.fontWeight = value('font-weight');
+    specimen.style.fontFamily = value('font-family') || state.pageFont || '';
+    specimen.style.letterSpacing = value('letter-spacing');
+    specimen.style.textTransform = value('text-transform');
+    specimen.style.fontStyle = value('font-style');
+
+    block._spec.textContent = ['font-size', 'line-height', 'font-weight']
+      .map(value)
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  // Keeps a specimen in step with an edit without rebuilding the whole list,
+  // so dragging a colour picker stays smooth.
+  function refreshTypeSets(name) {
+    var blocks = els.groups.querySelectorAll('.type-set');
+    for (var i = 0; i < blocks.length; i++) {
+      var props = blocks[i]._set && blocks[i]._set.props;
+      if (!props) continue;
+      var owns = Object.keys(props).some(function (p) {
+        return props[p] === name;
+      });
+      if (owns) applyTypeSet(blocks[i]);
+    }
   }
 
   function setDevice(device) {

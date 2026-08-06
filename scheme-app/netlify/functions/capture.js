@@ -120,7 +120,7 @@ exports.handler = async (event) => {
       // keep the requested URL if page.url() is unparseable (about:blank etc)
     }
 
-    const { root, schemeNames } = await page.evaluate(() => {
+    const { root, schemeNames, pageFont, pageFontSize } = await page.evaluate(() => {
       // Custom properties cannot be discovered by iterating a computed style:
       // getComputedStyle()'s indexed list contains only standard properties,
       // so `for (const p of computed)` never yields a --scheme-* name even
@@ -173,7 +173,17 @@ exports.handler = async (event) => {
         )
       ).filter(Boolean);
 
-      return { root: vars, schemeNames: schemes };
+      // Most typography variable sets carry size, weight and line height but
+      // no family, so the spec sheet needs the page's own face to fall back to
+      // rather than showing specimens in a system font.
+      const bodyStyle = getComputedStyle(document.body);
+
+      return {
+        root: vars,
+        schemeNames: schemes,
+        pageFont: bodyStyle.fontFamily || '',
+        pageFontSize: bodyStyle.fontSize || '',
+      };
     });
 
     const body = await page.evaluate(() => {
@@ -214,6 +224,8 @@ exports.handler = async (event) => {
       pageUrl: landedUrl.toString(),
       device: deviceName,
       schemeNames,
+      pageFont,
+      pageFontSize,
       varCount: Object.keys(root).length,
     });
   } catch (err) {
