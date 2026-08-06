@@ -123,7 +123,7 @@
   }
   #editorToolbar {
     padding: 10px;
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid var(--panel-line);
     display: flex;
     gap: 8px;
   }
@@ -142,21 +142,38 @@
     padding: 4px 0 12px;
   }
   .group {
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid var(--panel-line);
   }
   .group-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 7px;
     padding: 8px 12px;
     cursor: pointer;
+    user-select: none;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--app-muted);
+    color: var(--panel-dim);
     font-weight: 600;
   }
-  .group-count { color: var(--app-muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .group-header .group-label { flex: 1 1 auto; }
+  .group-count { color: var(--panel-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  /* A collapsed group looked the same as an empty one, and nothing showed the
+     header was clickable. A rotating caret states both. */
+  .group-header::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    border-left: 4.5px solid currentColor;
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transform: rotate(90deg);
+    transition: transform 0.12s;
+  }
+  .group.collapsed .group-header::before { transform: rotate(0deg); }
+  .group-header:hover { color: var(--panel-fg); }
   .group-rows { padding: 0 12px 8px; }
   .group.collapsed .group-rows { display: none; }
   .row {
@@ -237,17 +254,17 @@
     flex-shrink: 0;
     background: transparent;
     border: none;
-    color: var(--app-muted);
+    color: var(--panel-dim);
     padding: 2px 4px;
     font-size: 13px;
     visibility: hidden;
   }
   .row .reset.visible { visibility: visible; }
-  .row .reset:hover { color: var(--app-text); }
+  .row .reset:hover { color: var(--panel-fg); }
 
   #editorFooter {
     padding: 10px;
-    border-top: 1px solid var(--app-border);
+    border-top: 1px solid var(--panel-line);
     display: flex;
     gap: 8px;
   }
@@ -337,6 +354,25 @@
     color: var(--panel-fg);
     border-color: var(--panel-line);
   }
+  /* button.secondary and friends are styled for the dark chrome, so on a light
+     panel their text was white on white - the Inspect and Reset all controls
+     vanished entirely. */
+  #editorPanel.light button.secondary,
+  #editorPanel.light button.icon,
+  #editorPanel.light button.seg {
+    color: var(--panel-fg);
+    border-color: var(--panel-line);
+  }
+  #editorPanel.light button.seg { color: var(--panel-dim); }
+  #editorPanel.light button.secondary:hover,
+  #editorPanel.light button.icon:hover { background: rgba(0, 0, 0, 0.04); }
+  #editorPanel.light button.seg.active,
+  #editorPanel.light button.secondary.active,
+  #editorPanel.light #inspectBtn.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
 
   #backdropBar {
     flex: 0 0 auto;
@@ -378,7 +414,22 @@
     gap: 8px;
     margin: 14px 0 4px;
     cursor: pointer;
+    user-select: none;
   }
+  .type-head::after {
+    content: '';
+    margin-left: auto;
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    border-left: 5px solid var(--panel-dim);
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transform: rotate(90deg);
+    transition: transform 0.12s;
+  }
+  .type-head.collapsed::after { transform: rotate(0deg); }
+  .type-head:hover::after { border-left-color: var(--panel-fg); }
   .bp-chip {
     flex: 0 0 auto;
     min-width: 20px;
@@ -435,7 +486,7 @@
   }
   #inspector {
     display: none;
-    border-bottom: 1px solid var(--app-border);
+    border-bottom: 1px solid var(--panel-line);
     padding: 10px 12px;
     max-height: 45%;
     overflow-y: auto;
@@ -477,7 +528,7 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    color: var(--app-muted);
+    color: var(--panel-dim);
     font-size: 10.5px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     padding-left: 28px;
@@ -492,10 +543,10 @@
     width: 9px;
     height: 9px;
     border-radius: 2px;
-    border: 1px solid var(--app-border);
+    border: 1px solid var(--panel-line);
     flex-shrink: 0;
   }
-  #inspectorEmpty { color: var(--app-muted); font-size: 11.5px; }
+  #inspectorEmpty { color: var(--panel-dim); font-size: 11.5px; }
   .row.highlight {
     background: rgba(91, 140, 255, 0.14);
     box-shadow: inset 2px 0 0 var(--app-accent);
@@ -557,7 +608,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">css-v21</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">ui-v22</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1069,7 +1120,7 @@
 
       var header = document.createElement('div');
       header.className = 'group-header';
-      header.innerHTML = '<span>' + fam + '</span><span class="group-count">' + groups[fam].length + '</span>';
+      header.innerHTML = '<span class="group-label">' + fam + '</span><span class="group-count">' + groups[fam].length + '</span>';
       header.addEventListener('click', function () {
         groupEl.classList.toggle('collapsed');
       });
@@ -1103,7 +1154,7 @@
 
     var header = document.createElement('div');
     header.className = 'group-header';
-    header.innerHTML = '<span>typography</span><span class=\'group-count\'>' + styles.length + '</span>';
+    header.innerHTML = '<span class=\'group-label\'>typography</span><span class=\'group-count\'>' + styles.length + '</span>';
     header.addEventListener('click', function () {
       groupEl.classList.toggle('collapsed');
     });
@@ -1162,8 +1213,15 @@
         });
         styleEl.appendChild(vars);
 
+        // Collapsed to start so the specimens read as a type scale rather than
+        // a list of tokens; the caret says they open, and they stay fully
+        // editable once they do.
+        vars.classList.add('collapsed');
+        head.classList.add('collapsed');
+
         var toggle = function () {
-          vars.classList.toggle('collapsed');
+          var collapsed = vars.classList.toggle('collapsed');
+          head.classList.toggle('collapsed', collapsed);
         };
         head.addEventListener('click', toggle);
         specimen.addEventListener('click', toggle);
