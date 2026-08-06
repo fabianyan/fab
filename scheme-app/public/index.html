@@ -42,6 +42,15 @@
     font-weight: 600;
     white-space: nowrap;
   }
+  #buildTag {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--app-muted);
+    border: 1px solid var(--app-border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    vertical-align: middle;
+  }
   header input[type="text"],
   header input[type="password"] {
     background: var(--app-bg);
@@ -356,7 +365,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor</h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v2</span></h1>
     <input id="urlInput" type="text" placeholder="https://www.example.com/page" />
     <button id="loginToggle" class="secondary">+ Login</button>
     <span id="loginFields">
@@ -414,7 +423,7 @@
     body: '',
     base: '',
     schemeNames: [],
-    inspecting: false,
+    inspecting: true,
     selected: null,
     highlight: [],
   };
@@ -476,6 +485,7 @@
   });
   els.preview.addEventListener('load', function () {
     state.selected = null;
+    els.inspectBtn.classList.toggle('active', state.inspecting);
     if (state.inspecting) enableInspect();
   });
 
@@ -551,7 +561,11 @@
 
       renderGroups();
       renderPreview();
-      setStatus(data.varCount + ' variables loaded' + (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : ''));
+      setStatus(
+        data.varCount + ' variables loaded' +
+        (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
+        (state.inspecting ? ' · click any element to inspect it' : '')
+      );
     } catch (err) {
       setStatus(err.message || 'Failed to load page', true);
     } finally {
@@ -766,10 +780,13 @@
 
   function enableInspect() {
     var doc = previewDoc();
-    if (!doc || !doc.body) return;
+    if (!doc || !doc.body) return false;
+    doc.removeEventListener('mousemove', onPreviewHover, true);
+    doc.removeEventListener('click', onPreviewClick, true);
     doc.addEventListener('mousemove', onPreviewHover, true);
     doc.addEventListener('click', onPreviewClick, true);
     doc.body.style.cursor = 'crosshair';
+    return true;
   }
 
   function disableInspect() {
