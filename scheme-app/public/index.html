@@ -185,15 +185,26 @@
     height: 28px;
     cursor: pointer;
   }
+  /* The visible label drops the `--scheme-` prefix every variable shares, and
+     truncates at the front rather than the end. Names in this scheme differ in
+     their last segment (…-font-size vs …-font-family), so ellipsising the tail
+     hid exactly the part that tells them apart. The last segment is a separate
+     non-shrinking span so it always survives; only the head collapses. The
+     stored key keeps its full name - this is display only. */
   .row .name {
     flex: 1 1 auto;
+    display: flex;
+    min-width: 0;
     font-size: 11.5px;
     color: var(--app-text);
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .row .name .prefix { color: var(--app-muted); }
+  .row .name .head {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--app-muted);
+  }
+  .row .name .tail { flex: 0 0 auto; }
   .row .value {
     width: 110px;
     flex-shrink: 0;
@@ -406,7 +417,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inherit-v13</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">labels-v14</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -828,7 +839,8 @@
 
     var label = document.createElement('div');
     label.className = 'name';
-    label.innerHTML = '<span class="prefix">--scheme-</span>' + name.replace(/^--scheme-/, '');
+    label.appendChild(buildVarLabel(name));
+    // Hover still gives the real name, prefix included.
     label.title = name;
 
     var input = document.createElement('input');
@@ -858,6 +870,27 @@
 
     refreshRow(row);
     return row;
+  }
+
+  // Purely presentational. `name` remains the key in state.current and the
+  // row's data-var, so Export :root still writes the full `--scheme-*` name.
+  function buildVarLabel(name) {
+    var frag = document.createDocumentFragment();
+    var short = name.replace(/^--scheme-/, '');
+    var cut = short.lastIndexOf('-');
+
+    var head = document.createElement('span');
+    head.className = 'head';
+    head.textContent = cut > 0 ? short.slice(0, cut) : short;
+    frag.appendChild(head);
+
+    if (cut > 0) {
+      var tail = document.createElement('span');
+      tail.className = 'tail';
+      tail.textContent = short.slice(cut);
+      frag.appendChild(tail);
+    }
+    return frag;
   }
 
   function refreshRow(row) {

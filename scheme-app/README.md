@@ -59,6 +59,21 @@ iframe immediately.
 6. **Export :root** dumps the current (possibly edited) variable set as a
    `:root { ... }` block you can copy and hand to engineering.
 
+## Variable labels
+
+Rows show the name without the `--scheme-` prefix that every variable shares,
+and truncate at the *front* rather than the end. Names here differ in their
+last segment — `…-font-size` against `…-font-family` — so ellipsising the tail
+hid precisely the part that tells two rows apart, leaving what looked like
+duplicate entries. The last segment is rendered as its own non-shrinking span
+so it always survives; only the head collapses, and it is dimmed to keep the
+distinguishing part prominent.
+
+This is display only. The full name stays the key in state, the row's
+`data-var`, the hover tooltip, and what **Export :root** writes, so exported
+declarations remain complete and paste-ready. Filtering also still matches
+against the full name, so searching `scheme-typography` works.
+
 ## Browsing between pages
 
 Clicking a link in the preview loads that page: the click is intercepted and
