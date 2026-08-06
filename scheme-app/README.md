@@ -56,9 +56,9 @@ iframe immediately.
    pointing at the page's origin so relative assets resolve. Editing a
    variable calls `iframe.contentDocument.documentElement.style.setProperty`
    directly for an instant repaint (no full reload).
-6. **Export changes…** offers the edit as changed-only CSS, changed-only JSON
-   (name/value pairs), or the full `:root` block, each copyable or
-   downloadable.
+6. **Export CSS…** offers the edit as a changed-only `:root` block or the full
+   one, each copyable or downloadable as a `.css` file. Applying a scheme
+   happens outside this tool, so handing over raw CSS is where its job ends.
 
 ## The editor panel
 

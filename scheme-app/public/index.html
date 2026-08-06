@@ -557,7 +557,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">edit-v20</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">css-v21</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -597,7 +597,7 @@
       <div id="groups"></div>
       <div id="editorFooter">
         <button id="resetAllBtn" class="secondary">Reset all</button>
-        <button id="exportBtn">Export changes…</button>
+        <button id="exportBtn">Export CSS…</button>
       </div>
     </div>
     <div id="previewWrap">
@@ -611,10 +611,9 @@
 
 <div id="exportModal">
   <div id="exportBox">
-    <h2>Export</h2>
+    <h2>Export CSS</h2>
     <div id="exportModes">
       <button class="seg" data-mode="changed-css">Changed CSS</button>
-      <button class="seg" data-mode="changed-json">Changed JSON</button>
       <button class="seg" data-mode="all-css">Full :root</button>
     </div>
     <div id="exportSummary"></div>
@@ -1965,11 +1964,6 @@
       els.exportText.value = buildRootBlock(state.current);
       els.exportSummary.textContent =
         Object.keys(state.current).length + ' variables — the whole captured scheme.';
-    } else if (state.exportMode === 'changed-json') {
-      els.exportText.value = count ? JSON.stringify(changes, null, 2) : '{}';
-      els.exportSummary.textContent = count
-        ? count + ' changed variable' + (count === 1 ? '' : 's') + ' as name/value pairs.'
-        : 'Nothing changed yet.';
     } else {
       els.exportText.value = count ? buildRootBlock(changes) : '';
       els.exportSummary.textContent = count
@@ -1979,7 +1973,6 @@
   }
 
   function downloadExport() {
-    var isJson = state.exportMode === 'changed-json';
     var host = 'scheme';
     try {
       host = new URL(state.pageUrl).hostname.replace(/^www\./, '');
@@ -1987,12 +1980,10 @@
       // keep the fallback
     }
 
-    var blob = new Blob([els.exportText.value], {
-      type: isJson ? 'application/json' : 'text/css',
-    });
+    var blob = new Blob([els.exportText.value], { type: 'text/css' });
     var link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = host + '-scheme' + (isJson ? '.json' : '.css');
+    link.download = host + '-scheme.css';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
