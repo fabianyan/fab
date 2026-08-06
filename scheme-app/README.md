@@ -134,14 +134,26 @@ it drives. Clicking the variable's name scrolls to its row in the main
 list. Use **↑** to walk up to the parent element, and the **Inspect**
 button to toggle the mode off.
 
-Results are split into **On this element** and **Inside this element**. The
-second section matters more than it sounds: a container like a review card
-usually declares almost nothing itself — its background and border — while
-everything you can see in it (the button's colour, the heading, the star
-rating) is declared on descendants. Reporting only the clicked element's
-own rules, as browser devtools do, makes a large component look like it has
-two variables. Descendant rules are matched with `querySelectorAll` against
-the subtree, and a `×N` suffix shows how many elements a rule hit.
+Results are split into three scopes, because the variable painting what you
+clicked is often declared nowhere near it:
+
+- **On this element** — rules matching the element itself. This is all a
+  browser's devtools shows, and on its own it is misleading: a container
+  usually declares only its background and border.
+- **Inherited from ancestors** — inheritable properties (`color`, the `font-*`
+  family, `line-height`, and friends) set on an ancestor. Text colour is
+  normally set once high up, so without this scope an element full of
+  coloured text appears to have no colour variable at all. Each row names the
+  ancestor it came from (`↑ div.page-wrap`) and shows the value as it
+  resolves *on the selected element*, which is the effective one.
+- **Inside this element** — rules matching descendants, matched with
+  `querySelectorAll` against the subtree. A `×N` suffix shows how many
+  elements a rule hit. This is where a card's button colour, heading and star
+  rating live.
+
+A variable is listed once, in the first scope it appears in, so the sections
+read as a progression: set here, handed down to here, used somewhere below
+here.
 
 To keep that fast on real pages, every declaration referencing a
 `--scheme-*` variable is indexed once per capture; inspecting then filters

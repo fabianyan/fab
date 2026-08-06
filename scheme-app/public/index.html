@@ -406,7 +406,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">mobile-v12</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">inherit-v13</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -482,6 +482,11 @@
   };
 
   var OVERLAY_ID = 'scheme-app-inspect-overlay';
+
+  // Properties that inherit. An ancestor's `color` styles this element's text
+  // even though no rule here mentions it, which is why an element full of
+  // coloured text can look like it has no colour variables of its own.
+  var INHERITABLE = /^(color|font|font-[a-z-]+|line-height|letter-spacing|word-spacing|text-align|text-transform|text-indent|text-shadow|white-space|direction|visibility|cursor|quotes|list-style|list-style-[a-z]+)$/;
 
   var els = {
     urlInput: document.getElementById('urlInput'),
@@ -1056,11 +1061,12 @@
     outlineElement(el);
 
     var direct = schemeDeclsFor(el);
+    var inherited = schemeDeclsInherited(el);
     var inside = schemeDeclsInside(el);
-    renderInspector(el, direct, inside);
+    renderInspector(el, direct, inherited, inside);
 
     var names = [];
-    direct.concat(inside).forEach(function (d) {
+    direct.concat(inherited, inside).forEach(function (d) {
       d.vars.forEach(function (n) {
         if (names.indexOf(n) === -1) names.push(n);
       });
@@ -1157,6 +1163,27 @@
     });
   }
 
+  // Inheritable declarations coming from ancestors. Text colour and type are
+  // usually set once high up rather than on the element being looked at, so
+  // without this the variable actually painting an element's text is missing
+  // from its panel entirely.
+  function schemeDeclsInherited(el) {
+    var index = schemeRuleIndex();
+    var out = [];
+    var ancestor = el.parentElement;
+
+    while (ancestor && ancestor.nodeType === 1) {
+      var label = describeElement(ancestor);
+      index.forEach(function (rule) {
+        if (!INHERITABLE.test(rule.prop)) return;
+        if (!selectorMatches(ancestor, rule.selector)) return;
+        out.push(Object.assign({}, rule, { from: label }));
+      });
+      ancestor = ancestor.parentElement;
+    }
+    return out;
+  }
+
   // Declarations applying to anything inside the element. A container like a
   // review card carries almost no variables of its own - everything visible
   // in it (button, heading, stars) is styled by rules on its descendants.
@@ -1240,28 +1267,33 @@
     }
   }
 
-  function renderInspector(el, direct, inside) {
+  function renderInspector(el, direct, inherited, inside) {
     var label = describeElement(el);
     els.inspectorTag.textContent = label;
     els.inspectorTag.title = label;
     els.inspectorBody.innerHTML = '';
 
+    // Anything already listed is skipped, so each variable gets exactly one
+    // editable row and the sections read as a progression: set here, handed
+    // down to here, used somewhere below here.
     var shown = {};
-    var directCount = renderVarSection('On this element', direct, el, shown, false);
-    // Anything already listed above is skipped, so each variable gets one
-    // editable row and the two sections read as a progression.
-    var insideCount = renderVarSection('Inside this element', inside, el, shown, true);
+    var counts =
+      renderVarSection('On this element', direct, el, shown, false) +
+      renderVarSection('Inherited from ancestors', inherited, el, shown, false) +
+      renderVarSection('Inside this element', inside, el, shown, true);
 
-    if (!directCount && !insideCount) {
+    if (!counts) {
       var empty = document.createElement('div');
       empty.id = 'inspectorEmpty';
-      empty.textContent = 'No --scheme-* variables style this element or anything inside it.';
+      empty.textContent = 'No --scheme-* variables style this element, anything inside it, or reach it by inheritance.';
       els.inspectorBody.appendChild(empty);
     }
   }
 
   function renderVarSection(title, decls, el, shown, isDescendant) {
     var doc = previewDoc();
+    // For inherited rules the computed value on the selected element is the
+    // effective one, which is exactly what is wanted here.
     var computed = doc && !isDescendant ? doc.defaultView.getComputedStyle(el) : null;
 
     // Group by variable so each appears once as a single editable row, with
@@ -1325,9 +1357,12 @@
         text.textContent =
           d.prop + ' · ' + d.selector +
           (resolved ? ' → ' + resolved : '') +
-          (d.count > 1 ? '  ×' + d.count : '');
+          (d.count > 1 ? '  ×' + d.count : '') +
+          (d.from ? '  ↑ ' + d.from : '');
         usage.appendChild(text);
-        usage.title = d.selector + ' { ' + d.prop + ': ' + d.expr + ' }';
+        usage.title =
+          d.selector + ' { ' + d.prop + ': ' + d.expr + ' }' +
+          (d.from ? '\ninherited from ' + d.from : '');
 
         wrap.appendChild(usage);
       });
