@@ -608,7 +608,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">ui-v22</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v23</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -699,6 +699,8 @@
     backdrop: 'dark',
     exportMode: 'changed-css',
     pageFont: '',
+    authored: {},
+    edits: {},
     pageFontSize: '',
   };
 
@@ -798,9 +800,10 @@
   });
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
+    state.edits = {};
     state.current = Object.assign({}, state.original);
     renderGroups();
-    applyAllVars();
+    applyEdits();
   });
   els.exportBtn.addEventListener('click', openExport);
   els.exportCloseBtn.addEventListener('click', closeExport);
@@ -833,6 +836,7 @@
     // rather than being rendered by us, so nothing on screen matches what
     // this app thinks it is showing. Say so instead of leaving the editor
     // pointed at a page that is no longer displayed.
+    if (Object.keys(state.edits).length) applyEdits();
     if (!attachPreviewHandlers() && state.pageUrl) {
       setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
     }
@@ -916,10 +920,7 @@
 
     // Edits are carried onto the next page so a scheme in progress can be
     // checked across several pages without re-entering it each time.
-    var edits = {};
-    Object.keys(state.current).forEach(function (name) {
-      if (state.current[name] !== state.original[name]) edits[name] = state.current[name];
-    });
+    var edits = Object.assign({}, state.edits);
 
     var payload = { url: url, device: state.device };
     if (els.loginFields.classList.contains('open') && els.userInput.value) {
@@ -940,10 +941,15 @@
 
       state.original = data.root || {};
       state.current = Object.assign({}, state.original);
+      // Authored text, so a token written as var(--other) keeps that link and
+      // editing the variable it points at still changes it.
+      state.authored = data.authored || Object.assign({}, state.original);
+      state.edits = {};
 
       var carried = 0;
       Object.keys(edits).forEach(function (name) {
         if (Object.prototype.hasOwnProperty.call(state.current, name)) {
+          state.edits[name] = edits[name];
           state.current[name] = edits[name];
           carried++;
         }
@@ -1034,7 +1040,7 @@
       // width-based media queries never fire at phone widths.
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<style id="scheme-app-css">' + state.css + '</style>' +
-      '<style id="scheme-app-vars">' + buildRootBlock(state.current) + '</style>' +
+      '<style id="scheme-app-vars">' + buildRootBlock(state.authored) + '</style>' +
       '</head><body>' + state.body + '</body></html>';
 
     els.preview.style.display = '';
@@ -1042,24 +1048,61 @@
     els.preview.srcdoc = doc;
   }
 
-  function applyAllVars() {
-    try {
-      var docEl = els.preview.contentDocument.documentElement;
-      Object.keys(state.current).forEach(function (name) {
-        docEl.style.setProperty(name, state.current[name]);
-      });
-    } catch (err) {
-      // Fallback: full re-render if direct DOM access is unavailable
+  // An edit is an inline override on the preview's :root, so removing it lets
+  // the authored declaration - var() reference and all - apply again.
+  function applyEdits() {
+    var doc = previewDoc();
+    if (!doc) {
       renderPreview();
+      return;
+    }
+    var docEl = doc.documentElement;
+    Object.keys(state.current).forEach(function (name) {
+      if (Object.prototype.hasOwnProperty.call(state.edits, name)) {
+        docEl.style.setProperty(name, state.edits[name]);
+      } else {
+        docEl.style.removeProperty(name);
+      }
+    });
+    syncResolved();
+  }
+
+  function applyVar(name) {
+    var doc = previewDoc();
+    if (!doc) {
+      renderPreview();
+      return;
+    }
+    var docEl = doc.documentElement;
+    if (Object.prototype.hasOwnProperty.call(state.edits, name)) {
+      docEl.style.setProperty(name, state.edits[name]);
+    } else {
+      docEl.style.removeProperty(name);
     }
   }
 
-  function applyVar(name, value) {
-    try {
-      els.preview.contentDocument.documentElement.style.setProperty(name, value);
-    } catch (err) {
-      renderPreview();
-    }
+  // Editing a general colour changes every token written as var() against it,
+  // so the effective value of every other variable is re-read from the preview
+  // and any row that moved is refreshed. Without this a dependent token keeps
+  // displaying its old colour even though the page has already repainted.
+  function syncResolved() {
+    var doc = previewDoc();
+    if (!doc) return;
+
+    var computed = doc.defaultView.getComputedStyle(doc.documentElement);
+    Object.keys(state.current).forEach(function (name) {
+      if (Object.prototype.hasOwnProperty.call(state.edits, name)) return;
+      var value = computed.getPropertyValue(name).trim();
+      if (!value || value === state.current[name]) return;
+      state.current[name] = value;
+      refreshRowsFor(name);
+      refreshTypeSets(name);
+    });
+  }
+
+  function refreshRowsFor(name) {
+    var rows = document.querySelectorAll('[data-var="' + name + '"]');
+    for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
   }
 
   function buildRootBlock(vars) {
@@ -1357,13 +1400,18 @@
   }
 
   function updateValue(name, value) {
+    // Back to the captured value means there is no edit any more, so the
+    // authored declaration takes over again and dependents follow it.
+    if (value === state.original[name]) delete state.edits[name];
+    else state.edits[name] = value;
+
     state.current[name] = value;
-    applyVar(name, value);
+    applyVar(name);
     // The same variable can be on screen twice (list + inspector); keep
     // every instance showing the same value.
-    var rows = document.querySelectorAll('[data-var="' + name + '"]');
-    for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
+    refreshRowsFor(name);
     refreshTypeSets(name);
+    syncResolved();
   }
 
   function setBackdrop(backdrop) {
@@ -1994,8 +2042,8 @@
 
   function changedVars() {
     var out = {};
-    Object.keys(state.current).forEach(function (name) {
-      if (state.current[name] !== state.original[name]) out[name] = state.current[name];
+    Object.keys(state.edits).forEach(function (name) {
+      out[name] = state.edits[name];
     });
     return out;
   }
@@ -2019,9 +2067,12 @@
     }
 
     if (state.exportMode === 'all-css') {
-      els.exportText.value = buildRootBlock(state.current);
+      // Authored values, so an exported token that derived from another still
+      // derives from it rather than being frozen to a literal.
+      var full = Object.assign({}, state.authored, state.edits);
+      els.exportText.value = buildRootBlock(full);
       els.exportSummary.textContent =
-        Object.keys(state.current).length + ' variables — the whole captured scheme.';
+        Object.keys(full).length + ' variables — the whole scheme, keeping var() references.';
     } else {
       els.exportText.value = count ? buildRootBlock(changes) : '';
       els.exportSummary.textContent = count

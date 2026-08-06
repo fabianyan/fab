@@ -120,7 +120,7 @@ exports.handler = async (event) => {
       // keep the requested URL if page.url() is unparseable (about:blank etc)
     }
 
-    const { root, schemeNames, pageFont, pageFontSize } = await page.evaluate(() => {
+    const { root, authored, schemeNames, pageFont, pageFontSize } = await page.evaluate(() => {
       // Custom properties cannot be discovered by iterating a computed style:
       // getComputedStyle()'s indexed list contains only standard properties,
       // so `for (const p of computed)` never yields a --scheme-* name even
@@ -173,6 +173,79 @@ exports.handler = async (event) => {
         )
       ).filter(Boolean);
 
+      // Resolved values alone are not enough. A component token is usually
+      // written as `--scheme-widgets-cta-default: var(--scheme-colors-color-primary)`,
+      // and resolving it stores the literal colour instead, breaking the link:
+      // editing the general colour then changes nothing downstream. So the
+      // authored text of each declaration is captured alongside the resolved
+      // value, and the preview is built from that.
+      const authored = {};
+      const declRe = /(--scheme-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)/g;
+
+      const collectAuthored = (rules) => {
+        for (const rule of rules) {
+          // Recurse but never skip: since CSS nesting shipped, an ordinary
+          // style rule also exposes a (usually empty) cssRules list, so
+          // treating a truthy cssRules as "this is only a container" skips
+          // every real rule and finds nothing at all.
+          if (rule.cssRules) collectAuthored(rule.cssRules);
+          if (!rule.selectorText || !rule.cssText) continue;
+          // Only declarations that actually reach :root matter here.
+          let applies = false;
+          try {
+            applies = document.documentElement.matches(rule.selectorText);
+          } catch (err) {
+            continue;
+          }
+          if (!applies) continue;
+
+          const open = rule.cssText.indexOf('{');
+          const close = rule.cssText.lastIndexOf('}');
+          if (open === -1 || close === -1) continue;
+
+          const body = rule.cssText.slice(open + 1, close);
+          let match;
+          declRe.lastIndex = 0;
+          // Later declarations win, approximating the cascade.
+          while ((match = declRe.exec(body))) authored[match[1]] = match[2].trim();
+        }
+      };
+
+      for (const sheet of document.styleSheets) {
+        try {
+          if (sheet.cssRules) collectAuthored(sheet.cssRules);
+        } catch (err) {
+          // cross-origin sheet
+        }
+      }
+
+      // Anything Vulcan set on :root at runtime outranks the stylesheets.
+      const inlineStyle = document.documentElement.style;
+      for (let i = 0; i < inlineStyle.length; i++) {
+        const prop = inlineStyle[i];
+        if (prop.indexOf('--scheme-') === 0) {
+          authored[prop] = inlineStyle.getPropertyValue(prop).trim();
+        }
+      }
+
+      // An authored value is only safe to ship if every variable it references
+      // was captured too: :root blocks are stripped from the CSS we return, so
+      // a reference to anything else would resolve to nothing in the preview.
+      // Those fall back to the resolved value.
+      const safeAuthored = {};
+      Object.keys(vars).forEach((name) => {
+        const value = authored[name];
+        const refs = value
+          ? (value.match(/var\(\s*(--[A-Za-z0-9_-]+)/g) || []).map(function (ref) {
+              return ref.replace(/var\(\s*/, '');
+            })
+          : [];
+        var resolvable = refs.every(function (ref) {
+          return Object.prototype.hasOwnProperty.call(vars, ref);
+        });
+        safeAuthored[name] = value && resolvable ? value : vars[name];
+      });
+
       // Most typography variable sets carry size, weight and line height but
       // no family, so the spec sheet needs the page's own face to fall back to
       // rather than showing specimens in a system font.
@@ -180,6 +253,7 @@ exports.handler = async (event) => {
 
       return {
         root: vars,
+        authored: safeAuthored,
         schemeNames: schemes,
         pageFont: bodyStyle.fontFamily || '',
         pageFontSize: bodyStyle.fontSize || '',
@@ -216,6 +290,7 @@ exports.handler = async (event) => {
 
     return respond(200, {
       root,
+      authored,
       css: cssParts.join('\n\n'),
       body,
       base: `${landedUrl.protocol}//${landedUrl.host}`,
