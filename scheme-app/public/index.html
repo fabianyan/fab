@@ -229,6 +229,91 @@
     padding: 40px;
   }
 
+  #inspectBtn.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
+  #inspector {
+    display: none;
+    border-bottom: 1px solid var(--app-border);
+    padding: 10px 12px;
+    max-height: 45%;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  #inspector.open { display: block; }
+  #inspectorHead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  #inspectorTag {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--app-accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .decl {
+    padding: 6px 0;
+    border-top: 1px solid var(--app-border);
+    font-size: 11.5px;
+  }
+  .decl-selector {
+    color: var(--app-muted);
+    font-size: 10.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .decl-prop {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--app-text);
+  }
+  .decl-expr {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--app-muted);
+    word-break: break-all;
+  }
+  .var-link {
+    color: var(--app-accent);
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
+  .decl-resolved {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--app-muted);
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+  .decl-resolved .chip {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1px solid var(--app-border);
+    flex-shrink: 0;
+  }
+  #inspectorEmpty { color: var(--app-muted); font-size: 11.5px; }
+  .row.highlight {
+    background: rgba(91, 140, 255, 0.14);
+    box-shadow: inset 2px 0 0 var(--app-accent);
+    border-radius: 5px;
+    padding-left: 6px;
+  }
+  @keyframes flashRow {
+    0%, 100% { background: transparent; }
+    30% { background: rgba(91, 140, 255, 0.4); }
+  }
+  .row.flash { animation: flashRow 0.9s ease; }
+
   #exportModal {
     display: none;
     position: fixed;
@@ -286,6 +371,15 @@
     <div id="editorPanel">
       <div id="editorToolbar">
         <input id="filterInput" type="text" placeholder="Filter variables…" />
+        <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it">Inspect</button>
+      </div>
+      <div id="inspector">
+        <div id="inspectorHead">
+          <span id="inspectorTag"></span>
+          <button id="inspectParentBtn" class="icon" title="Select parent element">↑</button>
+          <button id="inspectCloseBtn" class="icon" title="Close inspector">✕</button>
+        </div>
+        <div id="inspectorBody"></div>
       </div>
       <div id="groups"></div>
       <div id="editorFooter">
@@ -320,7 +414,12 @@
     body: '',
     base: '',
     schemeNames: [],
+    inspecting: false,
+    selected: null,
+    highlight: [],
   };
+
+  var OVERLAY_ID = 'scheme-app-inspect-overlay';
 
   var els = {
     urlInput: document.getElementById('urlInput'),
@@ -340,6 +439,12 @@
     exportText: document.getElementById('exportText'),
     exportCloseBtn: document.getElementById('exportCloseBtn'),
     exportCopyBtn: document.getElementById('exportCopyBtn'),
+    inspectBtn: document.getElementById('inspectBtn'),
+    inspector: document.getElementById('inspector'),
+    inspectorTag: document.getElementById('inspectorTag'),
+    inspectorBody: document.getElementById('inspectorBody'),
+    inspectParentBtn: document.getElementById('inspectParentBtn'),
+    inspectCloseBtn: document.getElementById('inspectCloseBtn'),
   };
 
   els.loginToggle.addEventListener('click', function () {
@@ -359,6 +464,20 @@
   els.exportBtn.addEventListener('click', openExport);
   els.exportCloseBtn.addEventListener('click', closeExport);
   els.exportCopyBtn.addEventListener('click', copyExport);
+
+  els.inspectBtn.addEventListener('click', function () {
+    setInspecting(!state.inspecting);
+  });
+  els.inspectCloseBtn.addEventListener('click', closeInspector);
+  els.inspectParentBtn.addEventListener('click', function () {
+    if (state.selected && state.selected.parentElement) {
+      selectElement(state.selected.parentElement);
+    }
+  });
+  els.preview.addEventListener('load', function () {
+    state.selected = null;
+    if (state.inspecting) enableInspect();
+  });
 
   function setStatus(text, isError) {
     els.status.textContent = text || '';
@@ -528,6 +647,8 @@
   function buildRow(name) {
     var row = document.createElement('div');
     row.className = 'row';
+    row.setAttribute('data-var', name);
+    if (state.highlight.indexOf(name) !== -1) row.classList.add('highlight');
 
     var value = state.current[name] || '';
     var isColor = isColorValue(value);
@@ -620,6 +741,280 @@
         row._nameSwatch.style.border = '1px dashed var(--app-border)';
       }
     }
+  }
+
+  function previewDoc() {
+    try {
+      return els.preview.contentDocument;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function setInspecting(on) {
+    state.inspecting = on;
+    els.inspectBtn.classList.toggle('active', on);
+    if (on) {
+      enableInspect();
+      setStatus('Inspect mode: click any element in the preview');
+    } else {
+      disableInspect();
+      closeInspector();
+      setStatus('');
+    }
+  }
+
+  function enableInspect() {
+    var doc = previewDoc();
+    if (!doc || !doc.body) return;
+    doc.addEventListener('mousemove', onPreviewHover, true);
+    doc.addEventListener('click', onPreviewClick, true);
+    doc.body.style.cursor = 'crosshair';
+  }
+
+  function disableInspect() {
+    var doc = previewDoc();
+    if (!doc) return;
+    doc.removeEventListener('mousemove', onPreviewHover, true);
+    doc.removeEventListener('click', onPreviewClick, true);
+    if (doc.body) doc.body.style.cursor = '';
+    var overlay = doc.getElementById(OVERLAY_ID);
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function ensureOverlay(doc) {
+    var overlay = doc.getElementById(OVERLAY_ID);
+    if (!overlay) {
+      overlay = doc.createElement('div');
+      overlay.id = OVERLAY_ID;
+      overlay.style.cssText =
+        'position:fixed;pointer-events:none;z-index:2147483647;' +
+        'border:2px solid #5b8cff;background:rgba(91,140,255,0.12);display:none;';
+      doc.documentElement.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function outlineElement(el) {
+    var doc = previewDoc();
+    if (!doc || !el) return;
+    var overlay = ensureOverlay(doc);
+    var rect = el.getBoundingClientRect();
+    overlay.style.display = 'block';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
+
+  function onPreviewHover(e) {
+    if (e.target && e.target.id !== OVERLAY_ID) outlineElement(e.target);
+  }
+
+  function onPreviewClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectElement(e.target);
+  }
+
+  function selectElement(el) {
+    if (!el || el.id === OVERLAY_ID) return;
+    state.selected = el;
+    outlineElement(el);
+
+    var decls = schemeDeclsFor(el);
+    renderInspector(el, decls);
+
+    var names = [];
+    decls.forEach(function (d) {
+      d.vars.forEach(function (n) {
+        if (names.indexOf(n) === -1) names.push(n);
+      });
+    });
+    state.highlight = names;
+    renderGroups();
+
+    els.inspector.classList.add('open');
+  }
+
+  function closeInspector() {
+    els.inspector.classList.remove('open');
+    state.selected = null;
+    if (state.highlight.length) {
+      state.highlight = [];
+      renderGroups();
+    }
+    var doc = previewDoc();
+    var overlay = doc && doc.getElementById(OVERLAY_ID);
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function describeElement(el) {
+    var text = el.tagName.toLowerCase();
+    if (el.id) text += '#' + el.id;
+    var cls = (el.getAttribute('class') || '').trim();
+    if (cls) text += '.' + cls.split(/\s+/).slice(0, 3).join('.');
+    return text;
+  }
+
+  function extractVarNames(value) {
+    var names = [];
+    var re = /var\(\s*(--scheme-[A-Za-z0-9_-]+)/g;
+    var match;
+    while ((match = re.exec(value))) {
+      if (names.indexOf(match[1]) === -1) names.push(match[1]);
+    }
+    return names;
+  }
+
+  // Walks the preview's stylesheets for rules matching this element whose
+  // declarations reference a --scheme-* variable, so the panel shows the
+  // authored var() expression rather than only the resolved value.
+  function schemeDeclsFor(el) {
+    var doc = previewDoc();
+    if (!doc) return [];
+    var found = [];
+    var seen = {};
+
+    function walk(rules) {
+      for (var i = 0; i < rules.length; i++) {
+        var rule = rules[i];
+        if (rule.cssRules && !rule.selectorText) {
+          walk(rule.cssRules);
+          continue;
+        }
+        if (!rule.selectorText || !rule.style) continue;
+        if (!selectorMatches(el, rule.selectorText)) continue;
+
+        for (var j = 0; j < rule.style.length; j++) {
+          var prop = rule.style[j];
+          var value = rule.style.getPropertyValue(prop);
+          if (value.indexOf('var(--scheme-') === -1) continue;
+          var key = prop + '|' + value + '|' + rule.selectorText;
+          if (seen[key]) continue;
+          seen[key] = true;
+          found.push({
+            prop: prop,
+            expr: value.trim(),
+            selector: rule.selectorText,
+            vars: extractVarNames(value),
+          });
+        }
+      }
+    }
+
+    for (var s = 0; s < doc.styleSheets.length; s++) {
+      var rules;
+      try {
+        rules = doc.styleSheets[s].cssRules;
+      } catch (err) {
+        continue;
+      }
+      if (rules) walk(rules);
+    }
+    return found;
+  }
+
+  function selectorMatches(el, selectorText) {
+    try {
+      return el.matches(selectorText);
+    } catch (err) {
+      // Pseudo-element selectors (.btn::before) throw; match the base
+      // selector so the pseudo-element's variables still surface.
+      try {
+        return el.matches(selectorText.replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, ''));
+      } catch (err2) {
+        return false;
+      }
+    }
+  }
+
+  function renderInspector(el, decls) {
+    var label = describeElement(el);
+    els.inspectorTag.textContent = label;
+    els.inspectorTag.title = label;
+    els.inspectorBody.innerHTML = '';
+
+    if (!decls.length) {
+      var empty = document.createElement('div');
+      empty.id = 'inspectorEmpty';
+      empty.textContent = 'No --scheme-* variables style this element directly. Use ↑ to inspect its parent.';
+      els.inspectorBody.appendChild(empty);
+      return;
+    }
+
+    var doc = previewDoc();
+    var computed = doc ? doc.defaultView.getComputedStyle(el) : null;
+
+    decls.forEach(function (d) {
+      var box = document.createElement('div');
+      box.className = 'decl';
+
+      var selector = document.createElement('span');
+      selector.className = 'decl-selector';
+      selector.textContent = d.selector;
+      selector.title = d.selector;
+      box.appendChild(selector);
+
+      var line = document.createElement('div');
+      var prop = document.createElement('span');
+      prop.className = 'decl-prop';
+      prop.textContent = d.prop + ': ';
+      line.appendChild(prop);
+
+      var expr = document.createElement('span');
+      expr.className = 'decl-expr';
+      var rest = d.expr;
+      d.vars.forEach(function (name) {
+        var idx = rest.indexOf(name);
+        if (idx === -1) return;
+        expr.appendChild(document.createTextNode(rest.slice(0, idx)));
+        var link = document.createElement('span');
+        link.className = 'var-link';
+        link.textContent = name;
+        link.title = 'Jump to this variable';
+        link.addEventListener('click', function () {
+          jumpToVar(name);
+        });
+        expr.appendChild(link);
+        rest = rest.slice(idx + name.length);
+      });
+      expr.appendChild(document.createTextNode(rest));
+      line.appendChild(expr);
+      box.appendChild(line);
+
+      var resolved = computed ? computed.getPropertyValue(d.prop).trim() : '';
+      if (resolved) {
+        var resolvedEl = document.createElement('div');
+        resolvedEl.className = 'decl-resolved';
+        if (isColorValue(resolved)) {
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.style.background = resolved;
+          resolvedEl.appendChild(chip);
+        }
+        resolvedEl.appendChild(document.createTextNode('→ ' + resolved));
+        box.appendChild(resolvedEl);
+      }
+
+      els.inspectorBody.appendChild(box);
+    });
+  }
+
+  function jumpToVar(name) {
+    var filter = els.filterInput.value.trim().toLowerCase();
+    if (filter && name.toLowerCase().indexOf(filter) === -1) {
+      els.filterInput.value = '';
+      renderGroups();
+    }
+    var row = els.groups.querySelector('[data-var="' + name + '"]');
+    if (!row) return;
+    var group = row.closest('.group');
+    if (group) group.classList.remove('collapsed');
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    row.classList.remove('flash');
+    void row.offsetWidth;
+    row.classList.add('flash');
   }
 
   function openExport() {

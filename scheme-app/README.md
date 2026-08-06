@@ -15,17 +15,15 @@ page's HTML/CSS plus those variables.
 ## Project structure
 
 ```
-scheme-app/
-  public/index.html               frontend: URL box, "+ Login", editor, live iframe
-  netlify/functions/capture.js     POST {url,user,pass} -> {root, css, body, base, schemeNames, varCount}
-  netlify.toml                     publish=public, functions dir, esbuild, chromium included_files, 30s timeout
-  package.json                     deps: @sparticuz/chromium, puppeteer-core
+public/index.html               frontend: URL box, "+ Login", editor, live iframe
+netlify/functions/capture.js    POST {url,user,pass} -> {root, css, body, base, schemeNames, varCount}
+netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, 30s timeout
+package.json                    deps: @sparticuz/chromium, puppeteer-core
 ```
 
 ## Local development
 
 ```bash
-cd scheme-app
 npm install
 npm run dev        # runs `netlify dev`
 ```
@@ -56,10 +54,27 @@ iframe immediately.
 6. **Export :root** dumps the current (possibly edited) variable set as a
    `:root { ... }` block you can copy and hand to engineering.
 
+## Inspect mode
+
+Click **Inspect**, then click any element in the preview to see which
+`--scheme-*` variables actually style it. For each matching CSS rule the
+panel shows the selector, the property, the authored `var()` expression,
+and the resolved value (with a color chip). The variables involved are
+highlighted in the editor list, and clicking a variable name in the panel
+scrolls to and flashes its row so you can edit it immediately. Use **↑** to
+walk up to the parent element when the clicked element has no scheme
+variables of its own.
+
+Rules are read from the preview's stylesheets rather than inferred from
+computed values, so what you see is the real authored reference, not a
+guess from color matching. Pseudo-element rules (`.btn::before`) are
+matched against their base selector so their variables still surface — the
+panel shows the full selector so you can tell.
+
 ## Deploying
 
-Deploy the `scheme-app/` directory as its own Netlify site (`netlify.toml`
-sets `publish = "public"` and `functions = "netlify/functions"`). Netlify's
+Deploy this repo as a Netlify site (`netlify.toml` sets
+`publish = "public"` and `functions = "netlify/functions"`). Netlify's
 free/starter tiers cap synchronous function execution below 30s regardless
 of the `netlify.toml` setting — if Chromium cold-start + page load exceeds
 your plan's real limit, you'll need a paid tier or a lighter wait strategy.
