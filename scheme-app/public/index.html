@@ -267,6 +267,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .inspect-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--app-muted);
+  }
   .inspect-var {
     padding: 3px 0 6px;
     border-top: 1px solid var(--app-border);
@@ -349,7 +360,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">browse-v7</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">subtree-v8</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -414,6 +425,7 @@
     highlight: [],
     hoverHref: null,
     lastStatus: '',
+    ruleIndex: null,
   };
 
   var OVERLAY_ID = 'scheme-app-inspect-overlay';
@@ -450,14 +462,15 @@
   });
 
   els.urlInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') loadPage();
+    if (e.key === 'Enter') loadPage(els.urlInput.value);
   });
-  els.loadBtn.addEventListener('click', loadPage);
+  els.loadBtn.addEventListener('click', function () {
+    loadPage(els.urlInput.value);
+  });
   els.recaptureBtn.addEventListener('click', function () {
-    if (state.pageUrl) {
-      els.urlInput.value = state.pageUrl;
-      loadPage();
-    }
+    // Deliberately ignores the input box - this re-pulls the page that is
+    // actually on screen, even if something else has been typed since.
+    if (state.pageUrl) loadPage(state.pageUrl);
   });
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
@@ -480,6 +493,8 @@
   });
   els.preview.addEventListener('load', function () {
     state.selected = null;
+    // Belongs to the document that was just replaced.
+    state.ruleIndex = null;
     els.inspectBtn.classList.toggle('active', state.inspecting);
     if (state.inspecting) enableInspect();
   });
@@ -537,8 +552,11 @@
     return 'https://' + trimmed.replace(/^\/+/, '');
   }
 
-  async function loadPage() {
-    var url = els.urlInput.value.trim();
+  // Callers pass the URL explicitly. Reading the input box here instead
+  // would make the box the source of truth, so "recapture the page in the
+  // preview" would silently capture whatever had been typed since.
+  async function loadPage(requestedUrl) {
+    var url = String(requestedUrl == null ? '' : requestedUrl).trim();
     if (!url) {
       setStatus('Enter a URL first', true);
       return;
@@ -589,6 +607,12 @@
       state.pageUrl = data.pageUrl || url;
       state.schemeNames = data.schemeNames || [];
       els.recaptureBtn.disabled = false;
+      // Spell out the target, so it is clear this is tied to the previewed
+      // page and not to the input box.
+      els.recaptureBtn.title = 'Re-capture the page in the preview:\n' + state.pageUrl;
+
+      // A redirect means the URL box no longer names what is on screen.
+      if (state.pageUrl !== url) els.urlInput.value = state.pageUrl;
 
       // The previous selection belongs to a page that is gone.
       state.highlight = [];
@@ -875,8 +899,7 @@
     // falls through to inspecting the link element itself.
     var href = e.shiftKey ? null : linkTargetOf(e.target);
     if (href) {
-      els.urlInput.value = href;
-      loadPage();
+      loadPage(href);
       return;
     }
 
@@ -907,11 +930,12 @@
     state.selected = el;
     outlineElement(el);
 
-    var decls = schemeDeclsFor(el);
-    renderInspector(el, decls);
+    var direct = schemeDeclsFor(el);
+    var inside = schemeDeclsInside(el);
+    renderInspector(el, direct, inside);
 
     var names = [];
-    decls.forEach(function (d) {
+    direct.concat(inside).forEach(function (d) {
       d.vars.forEach(function (n) {
         if (names.indexOf(n) === -1) names.push(n);
       });
@@ -952,13 +976,17 @@
     return names;
   }
 
-  // Walks the preview's stylesheets for rules matching this element whose
-  // declarations reference a --scheme-* variable, so the panel shows the
-  // authored var() expression rather than only the resolved value.
-  function schemeDeclsFor(el) {
+  // Every declaration in the page that references a --scheme-* variable,
+  // indexed once per capture. Built up front because inspecting a subtree
+  // tests these against many elements, and re-walking every stylesheet each
+  // time would be far slower than filtering a short pre-built list.
+  function schemeRuleIndex() {
+    if (state.ruleIndex) return state.ruleIndex;
+
     var doc = previewDoc();
     if (!doc) return [];
-    var found = [];
+
+    var index = [];
     var seen = {};
 
     function walk(rules) {
@@ -969,20 +997,17 @@
           continue;
         }
         if (!rule.selectorText || !rule.style) continue;
-        if (!selectorMatches(el, rule.selectorText)) continue;
 
         var decls = authoredDeclarations(rule);
         for (var j = 0; j < decls.length; j++) {
-          var prop = decls[j].prop;
-          var value = decls[j].value;
-          var key = prop + '|' + value + '|' + rule.selectorText;
+          var key = decls[j].prop + '|' + decls[j].value + '|' + rule.selectorText;
           if (seen[key]) continue;
           seen[key] = true;
-          found.push({
-            prop: prop,
-            expr: value,
+          index.push({
+            prop: decls[j].prop,
+            expr: decls[j].value,
             selector: rule.selectorText,
-            vars: extractVarNames(value),
+            vars: extractVarNames(decls[j].value),
           });
         }
       }
@@ -997,7 +1022,44 @@
       }
       if (rules) walk(rules);
     }
-    return found;
+
+    state.ruleIndex = index;
+    return index;
+  }
+
+  // Declarations applying to the element itself.
+  function schemeDeclsFor(el) {
+    return schemeRuleIndex().filter(function (rule) {
+      return selectorMatches(el, rule.selector);
+    });
+  }
+
+  // Declarations applying to anything inside the element. A container like a
+  // review card carries almost no variables of its own - everything visible
+  // in it (button, heading, stars) is styled by rules on its descendants.
+  function schemeDeclsInside(el) {
+    var out = [];
+    schemeRuleIndex().forEach(function (rule) {
+      var hits = matchesWithin(el, rule.selector);
+      if (hits) out.push(Object.assign({}, rule, { count: hits }));
+    });
+    return out;
+  }
+
+  function matchesWithin(el, selectorText) {
+    try {
+      return el.querySelectorAll(selectorText).length;
+    } catch (err) {
+      try {
+        return el.querySelectorAll(withoutPseudo(selectorText)).length;
+      } catch (err2) {
+        return 0;
+      }
+    }
+  }
+
+  function withoutPseudo(selectorText) {
+    return selectorText.replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, '');
   }
 
   // Reads declarations from the rule's own text rather than iterating
@@ -1048,36 +1110,44 @@
       // Pseudo-element selectors (.btn::before) throw; match the base
       // selector so the pseudo-element's variables still surface.
       try {
-        return el.matches(selectorText.replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, ''));
+        return el.matches(withoutPseudo(selectorText));
       } catch (err2) {
         return false;
       }
     }
   }
 
-  function renderInspector(el, decls) {
+  function renderInspector(el, direct, inside) {
     var label = describeElement(el);
     els.inspectorTag.textContent = label;
     els.inspectorTag.title = label;
     els.inspectorBody.innerHTML = '';
 
-    if (!decls.length) {
+    var shown = {};
+    var directCount = renderVarSection('On this element', direct, el, shown, false);
+    // Anything already listed above is skipped, so each variable gets one
+    // editable row and the two sections read as a progression.
+    var insideCount = renderVarSection('Inside this element', inside, el, shown, true);
+
+    if (!directCount && !insideCount) {
       var empty = document.createElement('div');
       empty.id = 'inspectorEmpty';
-      empty.textContent = 'No --scheme-* variables style this element directly. Use ↑ to inspect its parent.';
+      empty.textContent = 'No --scheme-* variables style this element or anything inside it.';
       els.inspectorBody.appendChild(empty);
-      return;
     }
+  }
 
+  function renderVarSection(title, decls, el, shown, isDescendant) {
     var doc = previewDoc();
-    var computed = doc ? doc.defaultView.getComputedStyle(el) : null;
+    var computed = doc && !isDescendant ? doc.defaultView.getComputedStyle(el) : null;
 
-    // Group by variable so each one appears once as a single editable row,
-    // with the declarations that reference it listed underneath.
+    // Group by variable so each appears once as a single editable row, with
+    // the declarations that reference it listed underneath.
     var order = [];
     var usages = {};
     decls.forEach(function (d) {
       d.vars.forEach(function (name) {
+        if (shown[name]) return;
         if (!usages[name]) {
           usages[name] = [];
           order.push(name);
@@ -1086,13 +1156,22 @@
       });
     });
 
+    if (!order.length) return 0;
+
+    var header = document.createElement('div');
+    header.className = 'inspect-section';
+    header.innerHTML = '<span>' + title + '</span><span>' + order.length + '</span>';
+    els.inspectorBody.appendChild(header);
+
     order.forEach(function (name) {
+      shown[name] = true;
+
       var wrap = document.createElement('div');
       wrap.className = 'inspect-var';
 
       var row = buildRow(name);
-      // Every variable here styles the selected element, so the highlight
-      // that marks them in the main list would be noise in this panel.
+      // Every variable here relates to the selection, so the highlight that
+      // marks them in the main list would just be noise in this panel.
       row.classList.remove('highlight');
       row.querySelector('.name').addEventListener('click', function () {
         jumpToVar(name);
@@ -1103,6 +1182,9 @@
       usages[name].forEach(function (d) {
         var usage = document.createElement('div');
         usage.className = 'decl-usage';
+
+        // Only the selected element has a single computed value to report; a
+        // descendant selector can match many elements at once.
         var resolved = computed ? computed.getPropertyValue(d.prop).trim() : '';
         // Shorthands compute to long strings ("rgb(16,24,32) none repeat
         // scroll 0% 0% / auto padding-box border-box") - not worth showing.
@@ -1117,7 +1199,10 @@
 
         var text = document.createElement('span');
         text.className = 'text';
-        text.textContent = d.prop + ' · ' + d.selector + (resolved ? ' → ' + resolved : '');
+        text.textContent =
+          d.prop + ' · ' + d.selector +
+          (resolved ? ' → ' + resolved : '') +
+          (d.count > 1 ? '  ×' + d.count : '');
         usage.appendChild(text);
         usage.title = d.selector + ' { ' + d.prop + ': ' + d.expr + ' }';
 
@@ -1126,6 +1211,8 @@
 
       els.inspectorBody.appendChild(wrap);
     });
+
+    return order.length;
   }
 
   function jumpToVar(name) {

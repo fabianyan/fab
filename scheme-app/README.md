@@ -64,7 +64,14 @@ hover any link to see where it goes.
 
 **↻ Recapture** re-captures whatever page the preview is currently showing,
 for when the site has changed or you want to re-pull it with different
-credentials.
+credentials. It deliberately ignores the URL box and uses the previewed
+page's own URL, so typing a different address without loading it cannot
+divert the recapture; its tooltip names the exact target.
+
+The captured URL is the one the browser landed on, not the one requested,
+so a host that redirects (`casino.com` → `casino.com/zh/`) reports its real
+destination — which is what recapture re-pulls and what relative links
+resolve against.
 
 Any edits you have made are carried onto the next page, so a scheme in
 progress can be checked across several pages without re-entering values —
@@ -85,9 +92,21 @@ shown in both places stays in sync.
 Under each row are the declarations that reference it (`background-color ·
 .cta → rgb(10, 125, 51)`), so you can see which properties and selectors
 it drives. Clicking the variable's name scrolls to its row in the main
-list. Use **↑** to walk up to the parent element when the clicked element
-has no scheme variables of its own, and the **Inspect** button to toggle
-the mode off.
+list. Use **↑** to walk up to the parent element, and the **Inspect**
+button to toggle the mode off.
+
+Results are split into **On this element** and **Inside this element**. The
+second section matters more than it sounds: a container like a review card
+usually declares almost nothing itself — its background and border — while
+everything you can see in it (the button's colour, the heading, the star
+rating) is declared on descendants. Reporting only the clicked element's
+own rules, as browser devtools do, makes a large component look like it has
+two variables. Descendant rules are matched with `querySelectorAll` against
+the subtree, and a `×N` suffix shows how many elements a rule hit.
+
+To keep that fast on real pages, every declaration referencing a
+`--scheme-*` variable is indexed once per capture; inspecting then filters
+that short list instead of re-walking every stylesheet per element.
 
 Declarations are read from the authored text of each matching rule rather
 than from CSSOM's expanded longhands. That matters: CSSOM expands

@@ -74,6 +74,17 @@ exports.handler = async (event) => {
       timeout: NAV_TIMEOUT_MS,
     });
 
+    // The request may have redirected (casino.com -> casino.com/zh/), so
+    // everything downstream must describe where the browser actually landed,
+    // not what was asked for. Otherwise relative links resolve against the
+    // wrong base and "recapture this page" re-requests the pre-redirect URL.
+    let landedUrl = targetUrl;
+    try {
+      landedUrl = new URL(page.url());
+    } catch (err) {
+      // keep the requested URL if page.url() is unparseable (about:blank etc)
+    }
+
     const { root, schemeNames } = await page.evaluate(() => {
       const computed = getComputedStyle(document.documentElement);
       const vars = {};
@@ -124,10 +135,10 @@ exports.handler = async (event) => {
       root,
       css: cssParts.join('\n\n'),
       body,
-      base: `${targetUrl.protocol}//${targetUrl.host}`,
-      // The full URL, so the preview can resolve relative links and assets
-      // against the actual page rather than just the origin.
-      pageUrl: targetUrl.toString(),
+      base: `${landedUrl.protocol}//${landedUrl.host}`,
+      // The full post-redirect URL, so the preview can resolve relative links
+      // and assets against the actual page rather than just the origin.
+      pageUrl: landedUrl.toString(),
       schemeNames,
       varCount: Object.keys(root).length,
     });
