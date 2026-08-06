@@ -267,46 +267,30 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .decl {
-    padding: 6px 0;
+  .inspect-var {
+    padding: 3px 0 6px;
     border-top: 1px solid var(--app-border);
-    font-size: 11.5px;
   }
-  .decl-selector {
-    color: var(--app-muted);
-    font-size: 10.5px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .decl-prop {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--app-text);
-  }
-  .decl-expr {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--app-muted);
-    word-break: break-all;
-  }
-  .var-link {
-    color: var(--app-accent);
-    cursor: pointer;
-    text-decoration: underline dotted;
-  }
-  .decl-resolved {
+  .inspect-var .name { cursor: pointer; }
+  .decl-usage {
     display: flex;
     align-items: center;
     gap: 5px;
     color: var(--app-muted);
     font-size: 10.5px;
-    margin-top: 2px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding-left: 28px;
+    overflow: hidden;
+    white-space: nowrap;
   }
-  .decl-resolved .chip {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
+  .decl-usage .text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .decl-usage .chip {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
     border: 1px solid var(--app-border);
     flex-shrink: 0;
   }
@@ -365,7 +349,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v2</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v4</span></h1>
     <input id="urlInput" type="text" placeholder="https://www.example.com/page" />
     <button id="loginToggle" class="secondary">+ Login</button>
     <span id="loginFields">
@@ -658,46 +642,27 @@
     });
   }
 
+  // One row control per variable, used by both the main list and the
+  // inspector panel, so a variable is edited the same way wherever it shows.
   function buildRow(name) {
     var row = document.createElement('div');
     row.className = 'row';
     row.setAttribute('data-var', name);
     if (state.highlight.indexOf(name) !== -1) row.classList.add('highlight');
 
-    var value = state.current[name] || '';
-    var isColor = isColorValue(value);
-    var hex = isColor ? toHexColor(value) : null;
-
     var swatch = document.createElement('div');
     swatch.className = 'swatch';
-    if (isColor) {
-      swatch.style.background = value;
-      if (hex) {
-        var colorInput = document.createElement('input');
-        colorInput.type = 'color';
-        colorInput.value = hex;
-        colorInput.addEventListener('input', function () {
-          updateValue(name, colorInput.value, row);
-        });
-        swatch.appendChild(colorInput);
-      }
-    } else {
-      swatch.style.background = 'transparent';
-      swatch.style.border = '1px dashed var(--app-border)';
-    }
 
     var label = document.createElement('div');
     label.className = 'name';
-    var shortName = name.replace(/^--scheme-/, '');
-    label.innerHTML = '<span class="prefix">--scheme-</span>' + shortName;
+    label.innerHTML = '<span class="prefix">--scheme-</span>' + name.replace(/^--scheme-/, '');
     label.title = name;
 
     var input = document.createElement('input');
     input.className = 'value';
     input.type = 'text';
-    input.value = value;
     input.addEventListener('change', function () {
-      updateValue(name, input.value, row);
+      updateValue(name, input.value);
     });
 
     var resetBtn = document.createElement('button');
@@ -705,56 +670,65 @@
     resetBtn.textContent = '↺';
     resetBtn.title = 'Reset to original value';
     resetBtn.addEventListener('click', function () {
-      updateValue(name, state.original[name], row);
+      updateValue(name, state.original[name]);
     });
-
-    if (state.current[name] !== state.original[name]) {
-      input.classList.add('changed');
-      resetBtn.classList.add('visible');
-    }
 
     row.appendChild(swatch);
     row.appendChild(label);
     row.appendChild(input);
     row.appendChild(resetBtn);
 
+    row._varName = name;
     row._nameInput = input;
     row._nameSwatch = swatch;
     row._resetBtn = resetBtn;
-    row._varName = name;
 
+    refreshRow(row);
     return row;
   }
 
-  function updateValue(name, value, row) {
+  function refreshRow(row) {
+    var name = row._varName;
+    var value = state.current[name] || '';
+    var changed = value !== state.original[name];
+
+    row._nameInput.value = value;
+    row._nameInput.classList.toggle('changed', changed);
+    row._resetBtn.classList.toggle('visible', changed);
+
+    var swatch = row._nameSwatch;
+    var picker = swatch.querySelector('input[type="color"]');
+
+    if (isColorValue(value)) {
+      swatch.style.background = value;
+      swatch.style.border = '1px solid var(--app-border)';
+      var hex = toHexColor(value);
+      if (hex && !picker) {
+        picker = document.createElement('input');
+        picker.type = 'color';
+        picker.addEventListener('input', function () {
+          updateValue(name, picker.value);
+        });
+        swatch.appendChild(picker);
+      }
+      // Leave the picker's own value alone while it is being dragged,
+      // otherwise reassigning it mid-drag closes the OS colour dialog.
+      if (picker && hex && document.activeElement !== picker) picker.value = hex;
+      if (picker && !hex) swatch.removeChild(picker);
+    } else {
+      if (picker) swatch.removeChild(picker);
+      swatch.style.background = 'transparent';
+      swatch.style.border = '1px dashed var(--app-border)';
+    }
+  }
+
+  function updateValue(name, value) {
     state.current[name] = value;
     applyVar(name, value);
-
-    if (row) {
-      row._nameInput.value = value;
-      var changed = state.current[name] !== state.original[name];
-      row._nameInput.classList.toggle('changed', changed);
-      row._resetBtn.classList.toggle('visible', changed);
-
-      row._nameSwatch.innerHTML = '';
-      if (isColorValue(value)) {
-        row._nameSwatch.style.background = value;
-        row._nameSwatch.style.border = '1px solid var(--app-border)';
-        var hex = toHexColor(value);
-        if (hex) {
-          var colorInput = document.createElement('input');
-          colorInput.type = 'color';
-          colorInput.value = hex;
-          colorInput.addEventListener('input', function () {
-            updateValue(name, colorInput.value, row);
-          });
-          row._nameSwatch.appendChild(colorInput);
-        }
-      } else {
-        row._nameSwatch.style.background = 'transparent';
-        row._nameSwatch.style.border = '1px dashed var(--app-border)';
-      }
-    }
+    // The same variable can be on screen twice (list + inspector); keep
+    // every instance showing the same value.
+    var rows = document.querySelectorAll('[data-var="' + name + '"]');
+    for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
   }
 
   function previewDoc() {
@@ -903,16 +877,16 @@
         if (!rule.selectorText || !rule.style) continue;
         if (!selectorMatches(el, rule.selectorText)) continue;
 
-        for (var j = 0; j < rule.style.length; j++) {
-          var prop = rule.style[j];
-          var value = rule.style.getPropertyValue(prop);
-          if (value.indexOf('var(--scheme-') === -1) continue;
+        var decls = authoredDeclarations(rule);
+        for (var j = 0; j < decls.length; j++) {
+          var prop = decls[j].prop;
+          var value = decls[j].value;
           var key = prop + '|' + value + '|' + rule.selectorText;
           if (seen[key]) continue;
           seen[key] = true;
           found.push({
             prop: prop,
-            expr: value.trim(),
+            expr: value,
             selector: rule.selectorText,
             vars: extractVarNames(value),
           });
@@ -930,6 +904,47 @@
       if (rules) walk(rules);
     }
     return found;
+  }
+
+  // Reads declarations from the rule's own text rather than iterating
+  // rule.style. CSSOM expands shorthands into longhands, and a longhand
+  // whose value came from a shorthand containing var() reads back as an
+  // empty string — so `background: var(--scheme-x)` is invisible via
+  // rule.style. Parsing the authored text also keeps the property name the
+  // author wrote instead of listing four border-*-color longhands.
+  function authoredDeclarations(rule) {
+    var out = [];
+    var text = rule.cssText || '';
+    var open = text.indexOf('{');
+    var close = text.lastIndexOf('}');
+    if (open === -1 || close === -1) return out;
+
+    var block = text.slice(open + 1, close);
+    var depth = 0;
+    var current = '';
+    var parts = [];
+    for (var i = 0; i < block.length; i++) {
+      var ch = block.charAt(i);
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (ch === ';' && depth === 0) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    parts.push(current);
+
+    parts.forEach(function (decl) {
+      var colon = decl.indexOf(':');
+      if (colon === -1) return;
+      var prop = decl.slice(0, colon).trim();
+      var value = decl.slice(colon + 1).trim();
+      if (!prop || value.indexOf('var(--scheme-') === -1) return;
+      out.push({ prop: prop, value: value });
+    });
+    return out;
   }
 
   function selectorMatches(el, selectorText) {
@@ -963,58 +978,59 @@
     var doc = previewDoc();
     var computed = doc ? doc.defaultView.getComputedStyle(el) : null;
 
+    // Group by variable so each one appears once as a single editable row,
+    // with the declarations that reference it listed underneath.
+    var order = [];
+    var usages = {};
     decls.forEach(function (d) {
-      var box = document.createElement('div');
-      box.className = 'decl';
-
-      var selector = document.createElement('span');
-      selector.className = 'decl-selector';
-      selector.textContent = d.selector;
-      selector.title = d.selector;
-      box.appendChild(selector);
-
-      var line = document.createElement('div');
-      var prop = document.createElement('span');
-      prop.className = 'decl-prop';
-      prop.textContent = d.prop + ': ';
-      line.appendChild(prop);
-
-      var expr = document.createElement('span');
-      expr.className = 'decl-expr';
-      var rest = d.expr;
       d.vars.forEach(function (name) {
-        var idx = rest.indexOf(name);
-        if (idx === -1) return;
-        expr.appendChild(document.createTextNode(rest.slice(0, idx)));
-        var link = document.createElement('span');
-        link.className = 'var-link';
-        link.textContent = name;
-        link.title = 'Jump to this variable';
-        link.addEventListener('click', function () {
-          jumpToVar(name);
-        });
-        expr.appendChild(link);
-        rest = rest.slice(idx + name.length);
+        if (!usages[name]) {
+          usages[name] = [];
+          order.push(name);
+        }
+        usages[name].push(d);
       });
-      expr.appendChild(document.createTextNode(rest));
-      line.appendChild(expr);
-      box.appendChild(line);
+    });
 
-      var resolved = computed ? computed.getPropertyValue(d.prop).trim() : '';
-      if (resolved) {
-        var resolvedEl = document.createElement('div');
-        resolvedEl.className = 'decl-resolved';
-        if (isColorValue(resolved)) {
+    order.forEach(function (name) {
+      var wrap = document.createElement('div');
+      wrap.className = 'inspect-var';
+
+      var row = buildRow(name);
+      // Every variable here styles the selected element, so the highlight
+      // that marks them in the main list would be noise in this panel.
+      row.classList.remove('highlight');
+      row.querySelector('.name').addEventListener('click', function () {
+        jumpToVar(name);
+      });
+      row.querySelector('.name').title = name + ' — click to find it in the list below';
+      wrap.appendChild(row);
+
+      usages[name].forEach(function (d) {
+        var usage = document.createElement('div');
+        usage.className = 'decl-usage';
+        var resolved = computed ? computed.getPropertyValue(d.prop).trim() : '';
+        // Shorthands compute to long strings ("rgb(16,24,32) none repeat
+        // scroll 0% 0% / auto padding-box border-box") - not worth showing.
+        if (resolved.length > 40) resolved = '';
+
+        if (resolved && isColorValue(resolved)) {
           var chip = document.createElement('span');
           chip.className = 'chip';
           chip.style.background = resolved;
-          resolvedEl.appendChild(chip);
+          usage.appendChild(chip);
         }
-        resolvedEl.appendChild(document.createTextNode('→ ' + resolved));
-        box.appendChild(resolvedEl);
-      }
 
-      els.inspectorBody.appendChild(box);
+        var text = document.createElement('span');
+        text.className = 'text';
+        text.textContent = d.prop + ' · ' + d.selector + (resolved ? ' → ' + resolved : '');
+        usage.appendChild(text);
+        usage.title = d.selector + ' { ' + d.prop + ': ' + d.expr + ' }';
+
+        wrap.appendChild(usage);
+      });
+
+      els.inspectorBody.appendChild(wrap);
     });
   }
 

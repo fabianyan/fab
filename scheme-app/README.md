@@ -56,20 +56,32 @@ iframe immediately.
 
 ## Inspect mode
 
-Click **Inspect**, then click any element in the preview to see which
-`--scheme-*` variables actually style it. For each matching CSS rule the
-panel shows the selector, the property, the authored `var()` expression,
-and the resolved value (with a color chip). The variables involved are
-highlighted in the editor list, and clicking a variable name in the panel
-scrolls to and flashes its row so you can edit it immediately. Use **↑** to
-walk up to the parent element when the clicked element has no scheme
-variables of its own.
+Inspect is on by default: hovering the preview outlines elements, and
+clicking one opens a panel showing every `--scheme-*` variable that styles
+it. Each variable appears as the **same editable row used in the main
+list** — swatch, color picker, text field, and reset — so you can change a
+value straight from the inspector and watch the page repaint. A variable
+shown in both places stays in sync.
 
-Rules are read from the preview's stylesheets rather than inferred from
-computed values, so what you see is the real authored reference, not a
-guess from color matching. Pseudo-element rules (`.btn::before`) are
-matched against their base selector so their variables still surface — the
-panel shows the full selector so you can tell.
+Under each row are the declarations that reference it (`background-color ·
+.cta → rgb(10, 125, 51)`), so you can see which properties and selectors
+it drives. Clicking the variable's name scrolls to its row in the main
+list. Use **↑** to walk up to the parent element when the clicked element
+has no scheme variables of its own, and the **Inspect** button to toggle
+the mode off.
+
+Declarations are read from the authored text of each matching rule rather
+than from CSSOM's expanded longhands. That matters: CSSOM expands
+`background: var(--scheme-x)` into `background-image`, `background-color`
+and friends, whose values read back as empty strings when they came from a
+shorthand containing `var()` — iterating properties therefore misses every
+shorthand declaration. Parsing the rule text also keeps the property name
+the author wrote, so one `border-color` shows up once instead of as four
+`border-*-color` longhands.
+
+Pseudo-element rules (`.btn::before`) are matched against their base
+selector so their variables still surface; the panel shows the full
+selector so you can tell.
 
 ## Deploying
 
