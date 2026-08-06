@@ -125,6 +125,9 @@ exports.handler = async (event) => {
       css: cssParts.join('\n\n'),
       body,
       base: `${targetUrl.protocol}//${targetUrl.host}`,
+      // The full URL, so the preview can resolve relative links and assets
+      // against the actual page rather than just the origin.
+      pageUrl: targetUrl.toString(),
       schemeNames,
       varCount: Object.keys(root).length,
     });

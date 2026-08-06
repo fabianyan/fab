@@ -349,7 +349,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v6</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">browse-v7</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -357,6 +357,7 @@
       <input id="passInput" class="authField" type="password" placeholder="password" autocomplete="off" />
     </span>
     <button id="loadBtn">Load real page</button>
+    <button id="recaptureBtn" class="secondary" title="Re-capture the page currently in the preview" disabled>↻ Recapture</button>
     <span id="status"></span>
   </header>
 
@@ -407,9 +408,12 @@
     body: '',
     base: '',
     schemeNames: [],
+    pageUrl: '',
     inspecting: true,
     selected: null,
     highlight: [],
+    hoverHref: null,
+    lastStatus: '',
   };
 
   var OVERLAY_ID = 'scheme-app-inspect-overlay';
@@ -421,6 +425,7 @@
     userInput: document.getElementById('userInput'),
     passInput: document.getElementById('passInput'),
     loadBtn: document.getElementById('loadBtn'),
+    recaptureBtn: document.getElementById('recaptureBtn'),
     status: document.getElementById('status'),
     filterInput: document.getElementById('filterInput'),
     groups: document.getElementById('groups'),
@@ -448,6 +453,12 @@
     if (e.key === 'Enter') loadPage();
   });
   els.loadBtn.addEventListener('click', loadPage);
+  els.recaptureBtn.addEventListener('click', function () {
+    if (state.pageUrl) {
+      els.urlInput.value = state.pageUrl;
+      loadPage();
+    }
+  });
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
     state.current = Object.assign({}, state.original);
@@ -474,8 +485,16 @@
   });
 
   function setStatus(text, isError) {
-    els.status.textContent = text || '';
+    state.lastStatus = text || '';
+    els.status.textContent = state.lastStatus;
     els.status.classList.toggle('error', !!isError);
+  }
+
+  // Transient message shown while hovering, which must not overwrite the
+  // real status that setStatus is holding.
+  function setHoverStatus(text) {
+    els.status.textContent = text || state.lastStatus || '';
+    els.status.classList.remove('error');
   }
 
   function familyOf(name) {
@@ -529,6 +548,13 @@
     setStatus('Loading real page… this can take a few seconds');
     els.loadBtn.disabled = true;
 
+    // Edits are carried onto the next page so a scheme in progress can be
+    // checked across several pages without re-entering it each time.
+    var edits = {};
+    Object.keys(state.current).forEach(function (name) {
+      if (state.current[name] !== state.original[name]) edits[name] = state.current[name];
+    });
+
     var payload = { url: url };
     if (els.loginFields.classList.contains('open') && els.userInput.value) {
       payload.user = els.userInput.value;
@@ -548,17 +574,35 @@
 
       state.original = data.root || {};
       state.current = Object.assign({}, state.original);
+
+      var carried = 0;
+      Object.keys(edits).forEach(function (name) {
+        if (Object.prototype.hasOwnProperty.call(state.current, name)) {
+          state.current[name] = edits[name];
+          carried++;
+        }
+      });
+
       state.css = data.css || '';
       state.body = data.body || '';
       state.base = data.base || '';
+      state.pageUrl = data.pageUrl || url;
       state.schemeNames = data.schemeNames || [];
+      els.recaptureBtn.disabled = false;
+
+      // The previous selection belongs to a page that is gone.
+      state.highlight = [];
+      state.selected = null;
+      state.hoverHref = null;
+      els.inspector.classList.remove('open');
 
       renderGroups();
       renderPreview();
       setStatus(
         data.varCount + ' variables loaded' +
         (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
-        (state.inspecting ? ' · click any element to inspect it' : '')
+        (carried ? ' · ' + carried + ' edit' + (carried === 1 ? '' : 's') + ' kept' : '') +
+        (state.inspecting ? ' · click an element to inspect, a link to browse' : '')
       );
     } catch (err) {
       setStatus(err.message || 'Failed to load page', true);
@@ -568,7 +612,10 @@
   }
 
   function renderPreview() {
-    var doc = '<!doctype html><html><head><base href="' + state.base + '/">' +
+    // Base is the captured page's own URL, not just its origin, so relative
+    // links and assets in a subdirectory resolve the way they do on the
+    // real site.
+    var doc = '<!doctype html><html><head><base href="' + (state.pageUrl || state.base + '/') + '">' +
       '<style id="scheme-app-css">' + state.css + '</style>' +
       '<style id="scheme-app-vars">' + buildRootBlock(state.current) + '</style>' +
       '</head><body>' + state.body + '</body></html>';
@@ -809,13 +856,50 @@
   }
 
   function onPreviewHover(e) {
-    if (e.target && e.target.id !== OVERLAY_ID) outlineElement(e.target);
+    if (!e.target || e.target.id === OVERLAY_ID) return;
+    outlineElement(e.target);
+
+    var href = linkTargetOf(e.target);
+    if (href !== state.hoverHref) {
+      setHoverStatus(href ? '→ ' + href + '   (click to load · shift-click to inspect)' : '');
+      state.hoverHref = href;
+    }
   }
 
   function onPreviewClick(e) {
     e.preventDefault();
     e.stopPropagation();
+
+    // A plain click on a link browses to it by re-capturing that URL, since
+    // the preview is srcdoc and cannot navigate on its own. Shift-click
+    // falls through to inspecting the link element itself.
+    var href = e.shiftKey ? null : linkTargetOf(e.target);
+    if (href) {
+      els.urlInput.value = href;
+      loadPage();
+      return;
+    }
+
     selectElement(e.target);
+  }
+
+  // Resolves an anchor's href against the captured page's URL, and only for
+  // links this app can actually capture.
+  function linkTargetOf(node) {
+    var el = node;
+    while (el && el.nodeType === 1 && el.tagName !== 'A') el = el.parentElement;
+    if (!el || el.nodeType !== 1) return null;
+
+    var raw = el.getAttribute('href');
+    if (!raw || raw.charAt(0) === '#') return null;
+
+    try {
+      var resolved = new URL(raw, state.pageUrl || state.base);
+      if (!/^https?:$/.test(resolved.protocol)) return null;
+      return resolved.toString();
+    } catch (err) {
+      return null;
+    }
   }
 
   function selectElement(el) {

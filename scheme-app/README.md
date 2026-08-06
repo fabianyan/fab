@@ -16,7 +16,7 @@ page's HTML/CSS plus those variables.
 
 ```
 public/index.html               frontend: URL box, "Basic Auth", editor, live iframe
-netlify/functions/capture.js    POST {url,user,pass} -> {root, css, body, base, schemeNames, varCount}
+netlify/functions/capture.js    POST {url,user,pass} -> {root, css, body, base, pageUrl, schemeNames, varCount}
 netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, 30s timeout
 package.json                    deps: @sparticuz/chromium, puppeteer-core
 ```
@@ -53,6 +53,25 @@ iframe immediately.
    directly for an instant repaint (no full reload).
 6. **Export :root** dumps the current (possibly edited) variable set as a
    `:root { ... }` block you can copy and hand to engineering.
+
+## Browsing between pages
+
+Clicking a link in the preview loads that page. The preview is rendered
+from `srcdoc` and cannot navigate on its own, so a link click is turned
+into a fresh capture of the link's URL — the same path as typing it in the
+box. Shift-click a link to inspect its styling instead of following it, and
+hover any link to see where it goes.
+
+**↻ Recapture** re-captures whatever page the preview is currently showing,
+for when the site has changed or you want to re-pull it with different
+credentials.
+
+Any edits you have made are carried onto the next page, so a scheme in
+progress can be checked across several pages without re-entering values —
+the status line reports how many were kept. **Reset all** clears them.
+
+Relative links resolve against the captured page's own URL rather than just
+its origin, so a `games/` link on `/zh/` correctly loads `/zh/games/`.
 
 ## Inspect mode
 
