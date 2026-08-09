@@ -287,7 +287,7 @@ exports.handler = async (event) => {
           const res = await fetch(href);
           if (!res.ok) return '';
           const text = await res.text();
-          return stripRootBlocks(text);
+          return absolutizeUrls(stripRootBlocks(text), href);
         } catch (err) {
           return '';
         }
@@ -297,7 +297,7 @@ exports.handler = async (event) => {
     return respond(200, {
       root,
       authored,
-      css: cssParts.join('\n\n'),
+      css: hoistImports(cssParts.join('\n\n')),
       body,
       base: `${landedUrl.protocol}//${landedUrl.host}`,
       // The full post-redirect URL, so the preview can resolve relative links
@@ -337,6 +337,45 @@ function normalizeUrl(raw) {
 
 function stripRootBlocks(css) {
   return css.replace(/:root\s*\{[^}]*\}/g, '');
+}
+
+// A stylesheet's relative URLs resolve against the stylesheet, not the page.
+// The preview puts every sheet in one <style> under a <base> pointing at the
+// page, so `url(../fonts/lato.woff2)` in /assets/css/site.css would be looked
+// for in the wrong directory and the web font would never arrive - leaving the
+// preview, and the specimens beside it, in a fallback face.
+function absolutizeUrls(css, sheetHref) {
+  return css
+    .replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, (whole, quote, ref) => {
+      if (/^(data:|https?:|\/\/|#)/i.test(ref)) return whole;
+      try {
+        return 'url("' + new URL(ref, sheetHref).toString() + '")';
+      } catch (err) {
+        return whole;
+      }
+    })
+    .replace(/@import\s+(['"])([^'"]+)\1/g, (whole, quote, ref) => {
+      if (/^(data:|https?:|\/\/)/i.test(ref)) return whole;
+      try {
+        return '@import "' + new URL(ref, sheetHref).toString() + '"';
+      } catch (err) {
+        return whole;
+      }
+    });
+}
+
+// @import is only honoured at the very start of a stylesheet. Every sheet is
+// concatenated into one <style>, so any import belonging to the second sheet
+// onwards would be silently dropped - and a site that loads its typeface that
+// way (`@import url(...Lato...)`) would render in a fallback face with no
+// error anywhere. Lifting them to the front, in order, keeps them valid.
+function hoistImports(css) {
+  const imports = [];
+  const rest = css.replace(/@import\s+[^;]+;/g, (whole) => {
+    imports.push(whole.trim());
+    return '';
+  });
+  return imports.length ? imports.join('\n') + '\n' + rest : rest;
 }
 
 function respond(statusCode, data) {

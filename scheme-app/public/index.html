@@ -217,6 +217,21 @@
     inset: 0;
     border-radius: inherit;
   }
+  /* A family has no colour to show, so the same reserved square shows the face
+     itself. Rows stay aligned whether they hold a colour, a font or a number. */
+  .swatch.font {
+    background: none;
+    box-shadow: 0 0 0 1px var(--panel-line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+  }
+  .swatch.font .font-chip {
+    font-size: 15px;
+    line-height: 1;
+    color: var(--panel-fg);
+  }
   .row .swatch input[type="color"] {
     position: absolute;
     inset: -4px;
@@ -636,7 +651,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v27</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v28</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1052,6 +1067,7 @@
       // Type specimens should use the site's real faces, which only exist in
       // the captured stylesheets.
       adoptFontFaces(state.css, state.pageUrl);
+      adoptFontImports(state.css);
       // The page's own tokens (--font-base, --fw-bold) are counted separately:
       // they are what the scheme's typography points at, so seeing them arrive
       // is what tells you the family and weight are editable at their source.
@@ -1083,6 +1099,12 @@
     var v = (value || '').trim();
     if (!v) return false;
     return /['"]/.test(v) || GENERIC_FAMILY.test(v);
+  }
+
+  // What to call a font stack: the face that actually gets used, unquoted.
+  function displayFamily(value) {
+    var first = String(value || '').split(',')[0].replace(/['"]/g, '').trim();
+    return first || String(value || '').trim();
   }
 
   // The families offered when editing one. Every option comes from the capture
@@ -1125,6 +1147,32 @@
       list.appendChild(option);
     });
     state.fontOptions = options.length;
+  }
+
+  // Sites that load a typeface with `@import url(fonts.googleapis…)` keep the
+  // faces in that imported sheet, not in one of their own @font-face rules, so
+  // copying only the latter leaves the panel drawing "Lato" in whatever the
+  // system happens to have. The imports are re-declared here as stylesheet
+  // links, which also sidesteps @import's rule that it must come first.
+  function adoptFontImports(css) {
+    var old = document.querySelectorAll('link[data-adopted-import]');
+    for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+
+    var re = /@import\s+(?:url\(\s*(['"]?)([^'")]+)\1\s*\)|(['"])([^'"]+)\3)/g;
+    var match;
+    var seen = {};
+    while ((match = re.exec(css || ''))) {
+      var href = match[2] || match[4];
+      // Only real stylesheet URLs. The capture rewrites relative ones to
+      // absolute, so anything else here is not something to load.
+      if (!href || !/^(https?:)?\/\//i.test(href) || seen[href]) continue;
+      seen[href] = true;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.setAttribute('data-adopted-import', '');
+      document.head.appendChild(link);
+    }
   }
 
   // Copies the captured @font-face rules into this document so specimens
@@ -1447,8 +1495,13 @@
 
     var label = document.createElement('div');
     label.className = 'name';
-    label.textContent = titleOverride || lastSegment(name);
     label.title = name;
+
+    // The text lives in its own span so refreshing it cannot wipe the badge
+    // beside it.
+    var nameText = document.createElement('span');
+    nameText.className = 'name-text';
+    label.appendChild(nameText);
 
     var use = document.createElement('span');
     use.className = 'use hidden';
@@ -1492,6 +1545,8 @@
     row._nameSwatch = swatch;
     row._resetBtn = resetBtn;
     row._use = use;
+    row._nameText = nameText;
+    row._title = titleOverride || '';
 
     refreshRow(row);
     return row;
@@ -1570,13 +1625,49 @@
 
     // Families get the page's own faces as suggestions; everything else stays
     // a plain field, so a size or a weight is not offered a list of fonts.
-    if (isFamilyValue(value) || /font-?family/i.test(name)) {
+    var family = isFamilyValue(value) || /font-?family/i.test(name);
+    if (family) {
       row._nameInput.setAttribute('list', 'fontFamilies');
       row._nameInput.title = 'Families used by this page — type any CSS value';
     } else {
       row._nameInput.removeAttribute('list');
       row._nameInput.removeAttribute('title');
     }
+
+    // A font row is named after the font it holds, not after its token. The
+    // token named the slot, so `--font-lato` still read "lato" after being
+    // changed to Tahoma — the one label in the panel that is supposed to
+    // answer "which font is this?" was answering with a stale one. The name is
+    // drawn in the face itself, and the field with it, so the change is
+    // legible rather than only spelled out. The full variable name stays on
+    // the line beneath, which is what tells two font slots apart.
+    if (family && value) {
+      if (picker) swatch.removeChild(picker);
+      row._nameText.textContent = displayFamily(value);
+      row._nameText.style.fontFamily = value;
+      row._nameInput.style.fontFamily = value;
+      row._nameSwatch.classList.add('font');
+      row._nameSwatch.style.display = '';
+      var chip = row._nameSwatch.querySelector('.font-chip');
+      if (!chip) {
+        chip = document.createElement('span');
+        chip.className = 'font-chip';
+        chip.textContent = 'Aa';
+        row._nameSwatch.appendChild(chip);
+      }
+      chip.style.fontFamily = value;
+      if (fill) fill.style.display = 'none';
+      row._nameText.title = row._varName + ' — currently ' + value;
+      return;
+    }
+
+    row._nameText.textContent = row._title || lastSegment(name);
+    row._nameText.style.fontFamily = '';
+    row._nameInput.style.fontFamily = '';
+    row._nameSwatch.classList.remove('font');
+    var oldChip = row._nameSwatch.querySelector('.font-chip');
+    if (oldChip) row._nameSwatch.removeChild(oldChip);
+    if (fill) fill.style.display = '';
 
     if (paint) {
       fill.style.background = paint;

@@ -51,7 +51,16 @@ iframe immediately.
    `<script>` tags stripped.
 4. It fetches the page's linked stylesheets and strips their `:root { ... }`
    blocks (the resolved values are already captured in step 3 — this avoids
-   the iframe re-deriving stale/default values from the raw CSS).
+   the iframe re-deriving stale/default values from the raw CSS). Two rewrites
+   keep the typefaces alive through that step, and both are load-bearing: a
+   sheet's relative `url()`s are made absolute against the sheet, since the
+   preview resolves everything against the *page* and would otherwise look for
+   `../fonts/lato.woff2` in the wrong directory; and every `@import` is lifted
+   to the front of the concatenation, because `@import` is only honoured at the
+   start of a stylesheet and a site that loads its typeface that way would
+   otherwise render in a fallback face with no error anywhere. The panel
+   re-declares those imports as stylesheet links of its own, so its specimens
+   use the real face too.
 5. The frontend renders the body + stripped CSS inside a sandboxed
    (`allow-same-origin`, no scripts) `<iframe srcdoc>`, with a `<base href>`
    pointing at the page's origin so relative assets resolve. Editing a
@@ -135,6 +144,14 @@ real names put a camelCase property before the breakpoint
 (`buttonBig-fontSize-desktop`) rather than a kebab-case one at the end.
 Matching only the latter found no sets at all on a real scheme, leaving a flat
 wall of near-identical rows.
+
+**A font row is named after its font, not its token.** `--font-lato` used to
+read **lato** whatever it held, so changing it to Tahoma left the one label
+that should answer "which font is this?" answering with the old one. The row
+now shows the family it currently holds, drawn in that face, with an `Aa`
+specimen in the square the colour rows use and the field itself set in the same
+face. The full variable name stays on the line beneath — that is what tells two
+font slots apart, and what gets exported.
 
 **Changing the family.** A row holding a family (`"Lato", sans-serif`) gets a
 list of the families the capture found — the stacks the scheme already uses and
