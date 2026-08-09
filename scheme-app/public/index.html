@@ -609,7 +609,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v25</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v26</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1009,6 +1009,7 @@
       state.hoverHref = null;
       els.inspector.classList.remove('open');
 
+      renderFontOptions();
       renderGroups();
       renderPreview();
       // Type specimens should use the site's real faces, which only exist in
@@ -1034,6 +1035,59 @@
       // previewed page to re-pull.
       els.recaptureBtn.disabled = !state.pageUrl;
     }
+  }
+
+  // A family value: a quoted face name, or a stack ending in one of CSS's
+  // generic families. Used to tell `"Lato", sans-serif` apart from the weights
+  // and sizes that sit beside it under the same `font` prefix.
+  var GENERIC_FAMILY = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-serif|ui-sans-serif|ui-monospace|ui-rounded|math|emoji|fangsong)\s*$/i;
+
+  function isFamilyValue(value) {
+    var v = (value || '').trim();
+    if (!v) return false;
+    return /['"]/.test(v) || GENERIC_FAMILY.test(v);
+  }
+
+  // The families offered when editing one. Every option comes from the capture
+  // - the stacks the scheme already uses, and the faces the page loads through
+  // @font-face - because a font this app made up would not be downloadable by
+  // the site and would render as a fallback on someone else's machine.
+  // Whole stacks are offered rather than bare names so picking one keeps its
+  // fallbacks instead of silently dropping them.
+  function renderFontOptions() {
+    var list = document.getElementById('fontFamilies');
+    if (!list) {
+      list = document.createElement('datalist');
+      list.id = 'fontFamilies';
+      document.body.appendChild(list);
+    }
+
+    var seen = {};
+    var options = [];
+    var add = function (value) {
+      var v = (value || '').trim();
+      if (!v || seen[v]) return;
+      seen[v] = true;
+      options.push(v);
+    };
+
+    Object.keys(state.current).sort().forEach(function (name) {
+      if (isFamilyValue(state.current[name])) add(state.current[name]);
+    });
+
+    var blocks = (state.css || '').match(/@font-face\s*\{[^}]*\}/g) || [];
+    blocks.forEach(function (block) {
+      var m = block.match(/font-family\s*:\s*([^;}]+)/i);
+      if (m) add(m[1].trim());
+    });
+
+    list.innerHTML = '';
+    options.forEach(function (value) {
+      var option = document.createElement('option');
+      option.value = value;
+      list.appendChild(option);
+    });
+    state.fontOptions = options.length;
   }
 
   // Copies the captured @font-face rules into this document so specimens
@@ -1135,6 +1189,23 @@
       refreshRowsFor(name);
       refreshTypeSets(name);
     });
+
+    // Most typography sets declare a size and weight but no family, so their
+    // specimens fall back to the page's own. That fallback was frozen at
+    // capture time, which left every specimen rendering in the old face after
+    // an edit to --font-base while the preview beside it had already changed.
+    if (!doc.body) return;
+    var bodyStyle = doc.defaultView.getComputedStyle(doc.body);
+    var font = bodyStyle.fontFamily;
+    var size = bodyStyle.fontSize;
+    if ((font && font !== state.pageFont) || (size && size !== state.pageFontSize)) {
+      state.pageFont = font || state.pageFont;
+      state.pageFontSize = size || state.pageFontSize;
+      var blocks = els.groups.querySelectorAll('.type-set');
+      for (var i = 0; i < blocks.length; i++) {
+        if (blocks[i]._set) applyTypeSet(blocks[i]);
+      }
+    }
   }
 
   function refreshRowsFor(name) {
@@ -1413,6 +1484,16 @@
 
     var paint = colorCss(value);
     row._triplet = isTriplet(value);
+
+    // Families get the page's own faces as suggestions; everything else stays
+    // a plain field, so a size or a weight is not offered a list of fonts.
+    if (isFamilyValue(value) || /font-?family/i.test(name)) {
+      row._nameInput.setAttribute('list', 'fontFamilies');
+      row._nameInput.title = 'Families used by this page — type any CSS value';
+    } else {
+      row._nameInput.removeAttribute('list');
+      row._nameInput.removeAttribute('title');
+    }
 
     if (paint) {
       fill.style.background = paint;

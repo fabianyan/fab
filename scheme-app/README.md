@@ -136,6 +136,24 @@ real names put a camelCase property before the breakpoint
 Matching only the latter found no sets at all on a real scheme, leaving a flat
 wall of near-identical rows.
 
+**Changing the family.** A row holding a family (`"Lato", sans-serif`) gets a
+list of the families the capture found — the stacks the scheme already uses and
+the faces the page loads through `@font-face`. Whole stacks are offered rather
+than bare names, so picking one keeps its fallbacks. The field stays free text,
+so any CSS value can be typed; the list is a shortcut, not a restriction. Rows
+holding a size or a weight get no list.
+
+The suggestions are deliberately limited to what the page loads. A font this
+tool made up would render here and nowhere else: the site has no `@font-face`
+or `@import` for it, so it would fall back to whatever happens to be installed
+on the next person's machine.
+
+Because most typography sets declare a size and weight but no family, their
+specimens fall back to the page's own — read live from the preview, so editing
+`--font-base` restyles the specimens as well as the page. Reading it once at
+capture time left every specimen in the old face while the preview beside it
+had already changed.
+
 Everything a specimen displays comes from the capture, never from this app:
 where a variant declares no family or size, the fallback is the captured page's
 own body value, and the page's `@font-face` rules are copied in (with relative
