@@ -426,6 +426,19 @@ express.
 `vercel dev` runs the function on your own machine, where the Lambda Chromium
 binary cannot execute, so it takes the same local-dev path as `netlify dev`.
 
+**One Vercel-specific fix worth knowing about.** `@sparticuz/chromium` ships
+Chromium's shared libraries (libnss3 and friends) as a separate archive, and
+only unpacks them — and points `LD_LIBRARY_PATH` at them — when it believes it
+is inside a Lambda container, which it decides from `AWS_EXECUTION_ENV` or
+`AWS_LAMBDA_JS_RUNTIME`. Vercel's functions *do* run on Lambda but expose
+neither, so the archive was never unpacked and the binary died on launch with
+`libnss3.so: cannot open shared object file`. Setting `AWS_LAMBDA_JS_RUNTIME`
+ourselves fixes it, but it must be set **before** the module is required, since
+both the unpacking and the `LD_LIBRARY_PATH` assignment happen at require time.
+Which archive is right follows the OS behind the runtime, and the Node version
+identifies it: 20 and later are Amazon Linux 2023, earlier ones Amazon Linux 2.
+A host that already sets either variable knows better and is left alone.
+
 ### Netlify
 
 Also still supported: `netlify.toml` sets `publish = "public"` and

@@ -38,6 +38,25 @@ async function launchBrowser() {
     return puppeteerFull.launch({ headless: true, args: ['--no-sandbox'] });
   }
 
+  // @sparticuz/chromium ships Chromium's shared libraries (libnss3 and
+  // friends) as a separate archive, and only unpacks them - and points
+  // LD_LIBRARY_PATH at them - when it believes it is inside a Lambda
+  // container. It decides that from AWS_EXECUTION_ENV or AWS_LAMBDA_JS_RUNTIME.
+  // Vercel's functions do run on Lambda but expose neither, so the archive was
+  // never unpacked: the binary itself extracted fine and then died with
+  // "libnss3.so: cannot open shared object file".
+  //
+  // Both the unpacking and the LD_LIBRARY_PATH assignment happen when the
+  // module is first required, so this has to be set before that require, not
+  // after. Which archive is right follows the OS behind the runtime, and the
+  // Node version is what identifies it: 20 and later run on Amazon Linux 2023,
+  // earlier ones on Amazon Linux 2. A host that already sets either variable
+  // knows better than we do and is left alone.
+  if (!process.env.AWS_EXECUTION_ENV && !process.env.AWS_LAMBDA_JS_RUNTIME) {
+    const major = parseInt(process.versions.node, 10);
+    process.env.AWS_LAMBDA_JS_RUNTIME = major >= 20 ? 'nodejs20.x' : 'nodejs18.x';
+  }
+
   const chromium = require('@sparticuz/chromium');
   return puppeteer.launch({
     args: chromium.args,
