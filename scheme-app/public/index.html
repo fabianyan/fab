@@ -386,6 +386,33 @@
   #backdropBar button.seg { padding: 4px 10px; font-size: 12px; }
 
   .sv-count { font-weight: 400; color: var(--panel-dim); }
+
+  /* How many rules actually reference a variable. A scheme carries plenty of
+     tokens nothing uses, and editing one of those changes nothing on the page
+     - which reads as the tool being broken unless the row says so. */
+  .use {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-line);
+    color: var(--panel-dim);
+    vertical-align: middle;
+  }
+  .use.unused {
+    color: #8a5a00;
+    border-color: #e0b050;
+    background: #fff5dd;
+  }
+  #editorPanel:not(.light) .use.unused {
+    color: #ffcf70;
+    border-color: #6b5320;
+    background: #2a2312;
+  }
+  .use.hidden { display: none; }
   .sv-var {
     font-size: 10.5px;
     color: var(--panel-dim);
@@ -609,7 +636,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v26</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v27</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -732,6 +759,12 @@
   // coloured text can look like it has no colour variables of its own.
   var INHERITABLE = /^(color|font|font-[a-z-]+|line-height|letter-spacing|word-spacing|text-align|text-transform|text-indent|text-shadow|white-space|direction|visibility|cursor|quotes|list-style|list-style-[a-z]+)$/;
 
+  // Properties worth reporting when a rule writes the value straight in rather
+  // than through a variable. Deliberately short: `color: #fff` appears
+  // thousands of times on a real site, and indexing every literal declaration
+  // would swamp both the panel and the lookup.
+  var WATCHED_LITERAL = /^(font|font-family|font-size|font-weight|line-height|color|background-color)$/;
+
   var els = {
     urlInput: document.getElementById('urlInput'),
     loginToggle: document.getElementById('loginToggle'),
@@ -829,8 +862,9 @@
   });
   els.preview.addEventListener('load', function () {
     state.selected = null;
-    // Belongs to the document that was just replaced.
+    // Belong to the document that was just replaced.
     state.ruleIndex = null;
+    state.usage = null;
     els.inspectBtn.classList.toggle('active', state.inspecting);
 
     // A document we cannot reach means the iframe navigated to the live site
@@ -841,6 +875,9 @@
     if (!attachPreviewHandlers() && state.pageUrl) {
       setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
     }
+    // The rows were built before this document existed, so their usage badges
+    // had nothing to count. Now there is.
+    refreshAllRows();
   });
 
   function setStatus(text, isError) {
@@ -1412,6 +1449,10 @@
     label.className = 'name';
     label.textContent = titleOverride || lastSegment(name);
     label.title = name;
+
+    var use = document.createElement('span');
+    use.className = 'use hidden';
+    label.appendChild(use);
     main.appendChild(label);
 
     // The complete name, always shown rather than truncated, so it can be read
@@ -1450,6 +1491,7 @@
     row._nameInput = input;
     row._nameSwatch = swatch;
     row._resetBtn = resetBtn;
+    row._use = use;
 
     refreshRow(row);
     return row;
@@ -1464,10 +1506,51 @@
     return parts.length > 1 ? parts[parts.length - 1] : short;
   }
 
+  // How many declarations in the captured CSS reference each variable. A
+  // scheme normally defines more tokens than the page uses - a whole shelf of
+  // font families where the design only wires up two - and editing one of the
+  // rest changes nothing on screen. Without a count that looks like the editor
+  // failing rather than the variable being unused.
+  function usageCounts() {
+    if (state.usage) return state.usage;
+    var doc = previewDoc();
+    if (!doc) return null;
+
+    var counts = {};
+    schemeRuleIndex().forEach(function (rule) {
+      if (rule.literal) return;
+      rule.vars.forEach(function (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    state.usage = counts;
+    return counts;
+  }
+
+  function refreshAllRows() {
+    var rows = document.querySelectorAll('.row[data-var]');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i]._varName) refreshRow(rows[i]);
+    }
+  }
+
   function refreshRow(row) {
     var name = row._varName;
     var value = state.current[name] || '';
     var changed = value !== state.original[name];
+
+    // Only once the preview has rendered is there any CSS to count against;
+    // until then the badge stays hidden rather than claiming nothing uses it.
+    var counts = usageCounts();
+    if (row._use) {
+      var used = counts ? counts[name] || 0 : null;
+      row._use.classList.toggle('hidden', used === null);
+      row._use.classList.toggle('unused', used === 0);
+      row._use.textContent = used === 0 ? 'unused' : used + '×';
+      row._use.title = used === 0
+        ? 'No rule in the captured CSS references this variable, so editing it will not change the page. The value it holds may still be applied somewhere hard-coded.'
+        : used + ' declaration' + (used === 1 ? '' : 's') + ' reference this variable';
+    }
 
     row._nameInput.value = value;
     row._nameInput.classList.toggle('changed', changed);
@@ -1911,6 +1994,11 @@
     if (!doc) return [];
 
     var index = [];
+    // Literals are kept apart from the variable index rather than mixed into
+    // it: the subtree scope tests every indexed rule against a querySelectorAll,
+    // so folding thousands of hard-coded declarations into the same list would
+    // slow every inspection down for a scope that never shows them.
+    var literals = [];
     var seen = {};
 
     // The enclosing @media condition travels with each declaration. A
@@ -1934,15 +2022,21 @@
           seen[key] = true;
           // A declaration whose variables were all filtered out has nothing
           // editable behind it, so it would only lengthen the scan.
-          var vars = extractVarNames(decls[j].value);
-          if (!vars.length) continue;
-          index.push({
+          var entry = {
             prop: decls[j].prop,
             expr: decls[j].value,
             selector: rule.selectorText,
             media: media || '',
-            vars: vars,
-          });
+            literal: !!decls[j].literal,
+            vars: [],
+          };
+          if (entry.literal) {
+            literals.push(entry);
+            continue;
+          }
+          entry.vars = extractVarNames(decls[j].value);
+          if (!entry.vars.length) continue;
+          index.push(entry);
         }
       }
     }
@@ -1958,7 +2052,67 @@
     }
 
     state.ruleIndex = index;
+    state.literalIndex = literals;
     return index;
+  }
+
+  // Declarations that write a value straight into a rule, on the element or on
+  // an ancestor it inherits type from. This is the answer to "I changed the
+  // family variable and the title did not move": the rule painting it never
+  // referenced a variable, so no edit here can reach it.
+  function hardcodedFor(el) {
+    schemeRuleIndex();
+    var literals = state.literalIndex || [];
+    var doc = previewDoc();
+    var computed = doc ? doc.defaultView.getComputedStyle(el) : null;
+    var out = [];
+    // The nearest declaration of a property is the one worth reporting, so a
+    // family named again on every ancestor is not listed five times.
+    var claimed = {};
+
+    // A family is only reported if the element really is rendering in it. The
+    // browser has already resolved the whole cascade, so asking it settles
+    // which of several matching rules actually won - guesswork this app cannot
+    // do from selectors alone.
+    var paints = function (d) {
+      if (d.prop !== 'font-family' || !computed) return true;
+      return firstFamily(computed.fontFamily) === firstFamily(d.expr);
+    };
+
+    var live = function (d) {
+      return mediaApplies(d.media) && !d.overridden && paints(d);
+    };
+
+    var take = function (target, from) {
+      var here = markOverridden(
+        literals.filter(function (rule) {
+          if (claimed[rule.prop]) return false;
+          if (from && !INHERITABLE.test(rule.prop)) return false;
+          return selectorMatches(target, rule.selector);
+        })
+      ).filter(live);
+
+      here.forEach(function (d) {
+        out.push(from ? Object.assign({}, d, { from: from }) : d);
+      });
+      here.forEach(function (d) {
+        claimed[d.prop] = true;
+      });
+    };
+
+    take(el, '');
+
+    var ancestor = el.parentElement;
+    while (ancestor && ancestor.tagName !== 'HTML') {
+      take(ancestor, describeElement(ancestor));
+      ancestor = ancestor.parentElement;
+    }
+
+    return out;
+  }
+
+  function firstFamily(value) {
+    return String(value || '').split(',')[0].replace(/['"]/g, '').trim().toLowerCase();
   }
 
   // Whether a rule's media condition holds at the preview's current width. A
@@ -2080,8 +2234,14 @@
       if (colon === -1) return;
       var prop = decl.slice(0, colon).trim();
       var value = decl.slice(colon + 1).trim();
-      if (!prop || value.indexOf('var(--') === -1) return;
-      out.push({ prop: prop, value: value });
+      if (!prop) return;
+      var hasVar = value.indexOf('var(--') !== -1;
+      // Declarations with no variable in them are kept for a short list of
+      // properties, so the inspector can say "this face is written into the
+      // rule" instead of leaving someone editing a variable that was never
+      // going to move it.
+      if (!hasVar && !WATCHED_LITERAL.test(prop)) return;
+      out.push({ prop: prop, value: value, literal: !hasVar });
     });
     return out;
   }
@@ -2115,12 +2275,57 @@
       renderVarSection('Inherited from ancestors', inherited, el, shown, false) +
       renderVarSection('Inside this element', inside, el, shown, true);
 
-    if (!counts) {
+    var fixed = renderHardcoded(el);
+
+    if (!counts && !fixed) {
       var empty = document.createElement('div');
       empty.id = 'inspectorEmpty';
       empty.textContent = 'No captured variables style this element, anything inside it, or reach it by inheritance.';
       els.inspectorBody.appendChild(empty);
     }
+  }
+
+  // Written into the rule, with no variable in the way. Nothing here is
+  // editable, and that is the point: it says why changing a variable left this
+  // part of the page alone.
+  function renderHardcoded(el) {
+    var decls = hardcodedFor(el);
+    if (!decls.length) return 0;
+
+    var header = document.createElement('div');
+    header.className = 'inspect-section';
+    header.innerHTML = '<span>Hard-coded — no variable</span><span>' + decls.length + '</span>';
+    els.inspectorBody.appendChild(header);
+
+    decls.forEach(function (d) {
+      var usage = document.createElement('div');
+      usage.className = 'decl-usage';
+
+      var chipColor = colorCss(d.expr);
+      if (chipColor) {
+        var chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.style.background = chipColor;
+        usage.appendChild(chip);
+      }
+
+      var text = document.createElement('span');
+      text.className = 'text';
+      text.textContent =
+        d.prop + ' · ' + d.selector + ' → ' + d.expr +
+        (d.from ? '  ↑ ' + d.from : '') +
+        (d.media ? '  @' + d.media : '');
+      usage.appendChild(text);
+      usage.title =
+        (d.media ? '@media ' + d.media + '\n' : '') +
+        d.selector + ' { ' + d.prop + ': ' + d.expr + ' }' +
+        (d.from ? '\ninherited from ' + d.from : '') +
+        '\nThis value is written into the rule, not taken from a variable, so no edit in this tool changes it.';
+
+      els.inspectorBody.appendChild(usage);
+    });
+
+    return decls.length;
   }
 
   function renderVarSection(title, decls, el, shown, isDescendant) {

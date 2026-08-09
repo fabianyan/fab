@@ -170,6 +170,36 @@ Full names remain the keys in state, the `data-var` attributes, and what
 paste-ready. Filtering still matches the full name, so `scheme-typography`
 works as a search.
 
+## When editing a variable changes nothing
+
+Two different reasons, and the panel now names both, because otherwise the tool
+just looks broken.
+
+**Nothing references it.** Every row carries a usage count — `12×`, or a
+**unused** tag — counted from the declarations in the captured CSS. A scheme
+routinely defines a shelf of font families where the design wires up two;
+editing one of the rest cannot move the page, and the count says so before you
+spend time on it.
+
+**The value is written into the rule.** A title whose CSS says
+`font-family: "Kanit", sans-serif` outright has no variable to edit. Clicking it
+now shows a **Hard-coded — no variable** section listing those declarations
+(family, size, weight, line-height, colour, background-colour) for the element
+and for the ancestors it inherits type from. Nothing there is editable — that
+is the point: it explains why the family variable left this title alone, and
+sends the change to the stylesheet rather than the scheme.
+
+A family is only reported as hard-coded when the element is genuinely rendering
+in it: the browser has already resolved the whole cascade, so its computed value
+decides which of several matching rules won. Guessing from selectors alone
+would mislabel a title that a more specific rule styles through a variable.
+
+The nearest declaration of a property wins, so a family named again on every
+ancestor is listed once. Literal declarations are indexed separately from
+variable ones, since the "inside this element" scope tests every indexed rule
+against a `querySelectorAll` and folding thousands of hard-coded declarations
+into that list would slow every inspection down.
+
 ## Browsing between pages
 
 Clicking a link in the preview loads that page: the click is intercepted and
