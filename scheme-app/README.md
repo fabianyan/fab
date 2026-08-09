@@ -450,12 +450,11 @@ or a lighter wait strategy.
 
 ## Known unverified items (do these first after deploying)
 
-1. **Chromium actually running on the host.** The `@sparticuz/chromium` +
-   `puppeteer-core` combo is standard but untested against a live deployment.
-   Confirm `varCount > 0` against a real URL. If Chromium fails to launch on
-   Vercel, the usual fix is `@sparticuz/chromium-min` with the matching binary
-   fetched from a release URL, which keeps the function bundle far smaller;
-   after that, chromium version pinning against the runtime's Node version.
+1. ~~**Chromium actually running on the host.**~~ **Confirmed working on
+   Vercel** — captures return real variables from the deployed function. It
+   took the `AWS_LAMBDA_JS_RUNTIME` fix described under Deploying. If it ever
+   regresses on a bundle-size limit rather than a library one, the fallback is
+   `@sparticuz/chromium-min` with the binary fetched from a release URL.
 2. **Cold-start time / timeout.** Chromium boot + `networkidle2` may
    approach the platform's real function timeout on heavier pages. May need
    a lighter wait strategy (e.g. `domcontentloaded` + a short fixed delay)
