@@ -441,6 +441,26 @@
     background: #2a1212;
   }
   .use.hidden { display: none; }
+
+  /* Opt-in, and deliberately a button rather than something automatic: it
+     reaches out to a third party and adds a face the site does not have. */
+  button.loadfont {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--app-accent);
+    background: transparent;
+    color: var(--app-accent);
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  button.loadfont:hover { background: var(--app-accent); color: #fff; }
+  button.loadfont[disabled] { opacity: 0.5; cursor: default; }
+  button.loadfont.hidden { display: none; }
   .sv-var {
     font-size: 10.5px;
     color: var(--panel-dim);
@@ -664,7 +684,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v29</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v30</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -758,6 +778,10 @@
     authored: {},
     edits: {},
     pageFontSize: '',
+    // Families fetched from Google Fonts on request, keyed lowercase. They
+    // survive a recapture, since they are a choice the user made rather than
+    // anything belonging to the captured page.
+    googleFonts: {},
   };
 
   // Trailing tokens that identify which text property a typography variable
@@ -906,6 +930,9 @@
     if (!attachPreviewHandlers() && state.pageUrl) {
       setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
     }
+    // A re-rendered preview is a fresh document, so anything fetched for it
+    // has to go back in before the rows measure what it can render.
+    injectGoogleFonts();
     // The rows were built before this document existed, so their usage badges
     // had nothing to count. Now there is.
     refreshAllRows();
@@ -1147,7 +1174,12 @@
       warn.title =
         first + ' is not among the faces this page loads, so the preview falls ' +
         'back to the next family in the stack. Pick one from the field\'s list, ' +
-        'or add the font to the site itself.';
+        'add the font to the site itself, or fetch it from Google Fonts to see it here.';
+      if (row._loadBtn) {
+        var offered = !available && !state.googleFonts[first.toLowerCase()];
+        row._loadBtn.classList.toggle('hidden', !offered);
+        row._loadBtn.disabled = false;
+      }
     };
 
     if (faceAvailable(doc, first)) {
@@ -1168,6 +1200,80 @@
     } catch (err) {
       // FontFaceSet.load unavailable; the immediate result stands.
     }
+  }
+
+  // Fetches a family from Google Fonts so a face the site does not carry can
+  // still be judged on screen. Explicitly a button press, never automatic:
+  // it calls a third party, and it puts a font in front of you that the site
+  // cannot render until someone adds the import to it. That caveat travels
+  // with the export rather than being left as a surprise.
+  async function loadGoogleFont(family) {
+    var name = String(family || '').replace(/["']/g, '').trim();
+    if (!name || state.googleFonts[name.toLowerCase()]) return;
+
+    var base = 'https://fonts.googleapis.com/css2?family=' +
+      encodeURIComponent(name).replace(/%20/g, '+');
+    // The weight axis is asked for first so weight edits show, and dropped on
+    // a second try: a family with only static weights answers 400 to a range.
+    var candidates = [base + ':wght@100..900&display=swap', base + '&display=swap'];
+
+    setStatus('Fetching ' + name + ' from Google Fonts…');
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var res = await fetch(candidates[i]);
+        if (!res.ok) continue;
+        var css = await res.text();
+        if (css.indexOf('@font-face') === -1) continue;
+
+        state.googleFonts[name.toLowerCase()] = {
+          family: name,
+          url: candidates[i],
+          css: css,
+        };
+        injectGoogleFonts();
+        // The measurement that said this face was missing is now stale.
+        state.faceCache = null;
+        refreshAllRows();
+        setStatus(
+          name + ' loaded for preview only — the site cannot render it until the ' +
+          '@import is added there, and Export CSS now carries that line.'
+        );
+        return;
+      } catch (err) {
+        // try the next form, then report
+      }
+    }
+
+    setStatus('Could not fetch ' + name + ' from Google Fonts', true);
+  }
+
+  // Into both documents: the preview so the page renders in it, and this one
+  // so the rows and specimens beside it agree.
+  function injectGoogleFonts() {
+    var css = Object.keys(state.googleFonts)
+      .map(function (key) {
+        return state.googleFonts[key].css;
+      })
+      .join('\n');
+
+    var own = document.getElementById('googleFonts');
+    if (!own) {
+      own = document.createElement('style');
+      own.id = 'googleFonts';
+      document.head.appendChild(own);
+    }
+    own.textContent = css;
+
+    var doc = previewDoc();
+    if (!doc || !doc.head) return;
+    var el = doc.getElementById('scheme-app-google');
+    if (!el) {
+      el = doc.createElement('style');
+      el.id = 'scheme-app-google';
+      doc.head.appendChild(el);
+    }
+    el.textContent = css;
   }
 
   // Whether a face can actually be rendered, measured rather than asked.
@@ -1411,6 +1517,35 @@
     return ':root {\n' + lines.join('\n') + '\n}';
   }
 
+  // A family fetched from Google Fonts renders in this tool because this tool
+  // asked for it. The site has no such import, so exporting the variable alone
+  // would hand over CSS that silently falls back on the real page. The import
+  // goes with it, for the families the export actually uses.
+  function fontImportsFor(vars) {
+    var used = {};
+    Object.keys(vars).forEach(function (name) {
+      if (isFamilyValue(vars[name])) used[displayFamily(vars[name]).toLowerCase()] = true;
+    });
+
+    var lines = Object.keys(state.googleFonts)
+      .filter(function (key) {
+        return used[key];
+      })
+      .map(function (key) {
+        return "@import url('" + state.googleFonts[key].url + "');";
+      });
+
+    if (!lines.length) return '';
+    return (
+      '/* Fetched by the editor so the preview could render ' +
+      (lines.length === 1 ? 'this family' : 'these families') +
+      '. The site does not\n' +
+      '   load ' + (lines.length === 1 ? 'it' : 'them') + ' yet, so this import must go in too - the variables alone\n' +
+      '   will fall back to the previous face. */\n' +
+      lines.join('\n') + '\n\n'
+    );
+  }
+
   function renderGroups() {
     var filter = els.filterInput.value.trim().toLowerCase();
     var all = Object.keys(state.current).sort();
@@ -1617,6 +1752,18 @@
     warn.className = 'use warn hidden';
     warn.textContent = 'not loaded';
     label.appendChild(warn);
+
+    var loadBtn = document.createElement('button');
+    loadBtn.className = 'loadfont hidden';
+    loadBtn.textContent = 'Load from Google';
+    loadBtn.title =
+      'Fetch this family from Google Fonts so the preview can render it. ' +
+      'Preview only — the site still needs the @import, which Export CSS includes.';
+    loadBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      loadGoogleFont(displayFamily(state.current[name]));
+    });
+    label.appendChild(loadBtn);
     main.appendChild(label);
 
     // The complete name, always shown rather than truncated, so it can be read
@@ -1657,6 +1804,7 @@
     row._resetBtn = resetBtn;
     row._use = use;
     row._warn = warn;
+    row._loadBtn = loadBtn;
     row._nameText = nameText;
     row._title = titleOverride || '';
 
@@ -2681,11 +2829,11 @@
       // Authored values, so an exported token that derived from another still
       // derives from it rather than being frozen to a literal.
       var full = Object.assign({}, state.authored, state.edits);
-      els.exportText.value = buildRootBlock(full);
+      els.exportText.value = fontImportsFor(full) + buildRootBlock(full);
       els.exportSummary.textContent =
         Object.keys(full).length + ' variables — the whole scheme, keeping var() references.';
     } else {
-      els.exportText.value = count ? buildRootBlock(changes) : '';
+      els.exportText.value = count ? fontImportsFor(changes) + buildRootBlock(changes) : '';
       els.exportSummary.textContent = count
         ? count + ' changed variable' + (count === 1 ? '' : 's') + ' — only these differ from the page.'
         : 'Nothing changed yet.';

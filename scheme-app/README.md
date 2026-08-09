@@ -165,6 +165,23 @@ tool made up would render here and nowhere else: the site has no `@font-face`
 or `@import` for it, so it would fall back to whatever happens to be installed
 on the next person's machine.
 
+**Trying a font the site does not have.** A missing family's row offers
+**Load from Google**, which fetches that family from Google Fonts into both the
+preview and the panel, so a face the site has never carried can still be judged
+on the real page. It is a button, never automatic: it calls a third party, and
+it shows you something the site cannot render yet.
+
+That caveat travels with the work rather than being left as a surprise. The
+status line says *preview only*, and **Export CSS** puts the matching
+`@import` above the `:root` block with a comment saying it has to be added too
+— without it the exported variables fall straight back to the previous face on
+the live site. Fetched families survive a recapture, since they are a choice
+you made rather than anything belonging to the captured page.
+
+The weight axis (`:wght@100..900`) is requested first so weight edits show,
+and dropped on a second attempt, because a family with only static weights
+answers 400 to a range.
+
 Type one anyway and the row says **not loaded**. This is the one edit that
 changes the CSS and nothing else — the browser quietly falls through to the
 next family in the stack, so the field reads `"Henny Penny"` while the page
