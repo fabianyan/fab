@@ -16,10 +16,19 @@ page's HTML/CSS plus those variables.
 
 ```
 public/index.html               frontend: URL box, "Basic Auth", editor, live iframe
-netlify/functions/capture.js    POST {url,user,pass,device} -> {root, css, body, base, pageUrl, device, pageFont, schemeNames, varCount}
-netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, 30s timeout
+lib/capture.js                  the capture itself: POST {url,user,pass,device} -> {root, authored, css, body, base, pageUrl, device, pageFont, schemeNames, varCount, schemeCount}
+api/capture.js                  Vercel adapter (req/res)
+netlify/functions/capture.js    Netlify adapter (event/handler)
+vercel.json                     outputDirectory=public, 60s maxDuration, production install skips devDependencies
+netlify.toml                    publish=public, functions dir, esbuild, chromium included_files, /api/* redirect
 package.json                    deps: @sparticuz/chromium, puppeteer-core
 ```
+
+The browser work sits in `lib/capture.js` and each platform gets a thin
+adapter, so the two hosts run the same code rather than two copies that drift.
+The frontend posts to **`/api/capture`** — where Vercel serves functions from —
+and `netlify.toml` redirects `/api/*` onto the Netlify function, so one path
+works on both and the page never has to know where it is running.
 
 ## Local development
 
@@ -396,19 +405,44 @@ selector so you can tell.
 
 ## Deploying
 
-Deploy this repo as a Netlify site (`netlify.toml` sets
-`publish = "public"` and `functions = "netlify/functions"`). Netlify's
-free/starter tiers cap synchronous function execution below 30s regardless
-of the `netlify.toml` setting — if Chromium cold-start + page load exceeds
-your plan's real limit, you'll need a paid tier or a lighter wait strategy.
+### Vercel (current deployment)
+
+Connect the repo; every push to `main` deploys. `vercel.json` carries the
+settings that matter:
+
+- `outputDirectory: "public"` — the static page.
+- `maxDuration: 60` and `memory: 1769` on `api/capture.js`. The default 10s is
+  not enough: Chromium has to cold-start *and* load a real page. 60s is the cap
+  on the Hobby plan.
+- `installCommand: "npm install --omit=dev"` — the dev dependencies are
+  `netlify-cli` and full `puppeteer`, and puppeteer's postinstall downloads a
+  ~150 MB Chromium the deployed function never uses.
+
+If the repo holds more than this app (as `fabianyan/fab` does, where it lives
+in `scheme-app/`), set the project's **Root Directory** to that folder in the
+Vercel dashboard — it is a project setting, not something `vercel.json` can
+express.
+
+`vercel dev` runs the function on your own machine, where the Lambda Chromium
+binary cannot execute, so it takes the same local-dev path as `netlify dev`.
+
+### Netlify
+
+Also still supported: `netlify.toml` sets `publish = "public"` and
+`functions = "netlify/functions"`, and redirects `/api/*` onto the function so
+the same frontend works. Netlify's free/starter tiers cap synchronous function
+execution below 30s regardless of the `netlify.toml` setting — if Chromium
+cold-start + page load exceeds your plan's real limit, you'll need a paid tier
+or a lighter wait strategy.
 
 ## Known unverified items (do these first after deploying)
 
-1. **Chromium actually running on Netlify.** The `@sparticuz/chromium` +
-   `puppeteer-core` combo and the `included_files`/timeout config are
-   standard but untested against a live deployment. Confirm `varCount > 0`
-   against a real URL; expect to tweak chromium version pinning, function
-   memory, or bundling if it fails.
+1. **Chromium actually running on the host.** The `@sparticuz/chromium` +
+   `puppeteer-core` combo is standard but untested against a live deployment.
+   Confirm `varCount > 0` against a real URL. If Chromium fails to launch on
+   Vercel, the usual fix is `@sparticuz/chromium-min` with the matching binary
+   fetched from a release URL, which keeps the function bundle far smaller;
+   after that, chromium version pinning against the runtime's Node version.
 2. **Cold-start time / timeout.** Chromium boot + `networkidle2` may
    approach the platform's real function timeout on heavier pages. May need
    a lighter wait strategy (e.g. `domcontentloaded` + a short fixed delay)

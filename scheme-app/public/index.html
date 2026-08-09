@@ -700,7 +700,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v32</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">vercel-v33</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1084,7 +1084,9 @@
     }
 
     try {
-      var res = await fetch('/.netlify/functions/capture', {
+      // One path for both hosts: Vercel serves functions from /api, and
+      // netlify.toml redirects /api/* onto the Netlify function.
+      var res = await fetch('/api/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
