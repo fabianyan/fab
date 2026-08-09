@@ -39,7 +39,8 @@ iframe immediately.
 2. The function launches Chromium (`@sparticuz/chromium` + `puppeteer-core`),
    optionally authenticates via `page.authenticate` (credentials are used
    in-request only, never stored), and navigates to the URL.
-3. It gathers every `--scheme-*` name referenced anywhere in the page's
+3. It gathers every custom property declared in a rule that reaches `:root`,
+   plus every `--scheme-*` name referenced anywhere in the page's
    stylesheets or set inline on `:root`, reads each one off the computed
    style of `document.documentElement`, and keeps those that resolve to a
    value. Names have to be collected this way because a computed style's
@@ -60,6 +61,30 @@ iframe immediately.
    one, each copyable or downloadable as a `.css` file. Applying a scheme
    happens outside this tool, so handing over raw CSS is where its job ends.
 
+## What counts as a variable
+
+Not only the `--scheme-*` namespace. A scheme rests on the page's own tokens:
+the family lives in `--font-base`, and a scheme token is written against them —
+`--scheme-typography-h1-fontWeight-m: var(--font-weight-bold)`, itself
+`var(--fw-bold)`. Capturing only the scheme namespace cost three things:
+
+- the font family could not be edited at all, because nothing represented it;
+- that two-hop weight chain collapsed to the literal `700`, since a reference to
+  an uncaptured variable has to fall back to its resolved value — so editing
+  weight could not cascade;
+- and because `:root` blocks are stripped from the returned CSS, the preview
+  lost `--font-base` entirely and rendered the page, and every type specimen,
+  in a fallback face.
+
+So every custom property that reaches `:root` is captured, page-level ones
+included. They get ordinary editable rows grouped under their own first
+segment (`font`, `fw`), and the full name on each row says which namespace a
+value belongs to. Nothing is invented: a name that resolves to no value is
+dropped, and a reference to an undefined variable cannot create an entry.
+
+The status line counts them separately — `7 page-level, 10 scheme` — so it is
+clear the tokens the typography points at actually arrived.
+
 ## The editor panel
 
 The panel is the scheme's spec sheet as well as its editor. Each row carries a
@@ -75,6 +100,10 @@ one, and translucent values look opaque. Swatches are therefore larger, sit on
 a checkerboard so anything semi-transparent reads as such, and carry a two-tone
 ring — light inside, dark outside — that holds an edge against both extremes.
 The colour is painted on an inner element so it never covers the checkerboard.
+A value stored as a bare channel triplet (`6, 6, 6`, meant for
+`rgba(var(--x), .4)`) is a colour too, so it gets a swatch painted through that
+same `rgb()` wrapper; picking a colour for one writes a triplet back rather
+than a hex, which would otherwise break the `rgba()` around it.
 A **Dark | Light** backdrop toggle flips the panel itself, because no single
 background suits every value. Rows whose value is not a colour show no swatch
 rather than an empty square.
@@ -83,7 +112,15 @@ rather than an empty square.
 `…-h1-fontSize-m`, `…-h1-lineHeight-m`, `…-h1-fontWeight-m` — and say almost
 nothing read individually. The breakpoint suffix is split off as a *variant* of
 a style rather than a style of its own, so each style (h1, h2, buttonBig) shows
-its sizes together, largest first, as a scale.
+its sizes together, largest first, as a scale. Suffixes carry step numbers in
+practice (`-s`, `-s2`, `-s3`, `-m2`, `-m3`); those count as breakpoints too, or
+`normal-fontSize-s2` would fold the number into the name and invent a style
+called `normal-s2` sitting apart from the scale it belongs to. The chip keeps
+the number (`S2`) so the steps are told apart.
+
+Only `--scheme-*` typography tokens form specimens. A page token like
+`--font-weight-bold` contains "font-weight" as well, and reading it as a
+typography set would conjure a style named "bold" out of a single weight.
 
 Each variant is a line of text rendered at that exact size, weight, line height
 and face, tagged with a breakpoint chip and the numbers (`45px / 137% / 700`).
@@ -178,8 +215,9 @@ Two limits worth knowing:
 ## Inspect mode
 
 Inspect is on by default: hovering the preview outlines elements, and
-clicking one opens a panel showing every `--scheme-*` variable that styles
-it. Each variable appears as the **same editable row used in the main
+clicking one opens a panel showing every captured variable that styles
+it — `font-family: var(--font-titles)` included, since that is exactly the
+declaration someone clicking a heading is looking for. Each variable appears as the **same editable row used in the main
 list** — swatch, color picker, text field, and reset — so you can change a
 value straight from the inspector and watch the page repaint. A variable
 shown in both places stays in sync.

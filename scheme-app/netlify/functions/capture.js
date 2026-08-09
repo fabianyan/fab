@@ -128,59 +128,23 @@ exports.handler = async (event) => {
       // from where they are written, then read back individually.
       const names = new Set();
 
-      const collectFrom = (rules) => {
-        for (const rule of rules) {
-          if (rule.cssRules) collectFrom(rule.cssRules);
-          // Matches declarations and var() references alike; anything that
-          // does not resolve to a value is dropped below, so a reference to
-          // an undefined variable cannot invent an entry.
-          const found = rule.cssText && rule.cssText.match(/--scheme-[A-Za-z0-9_-]+/g);
-          if (found) found.forEach((name) => names.add(name));
-        }
-      };
-
-      for (const sheet of document.styleSheets) {
-        try {
-          if (sheet.cssRules) collectFrom(sheet.cssRules);
-        } catch (err) {
-          // cross-origin stylesheet, unreadable by design
-        }
-      }
-
-      // Values Vulcan sets on :root at runtime rather than in a stylesheet.
-      const inline = document.documentElement.style;
-      for (let i = 0; i < inline.length; i++) {
-        if (inline[i].indexOf('--scheme-') === 0) names.add(inline[i]);
-      }
-
-      const computed = getComputedStyle(document.documentElement);
-      // Kept in case an engine does enumerate custom properties.
-      for (const prop of computed) {
-        if (prop.indexOf('--scheme-') === 0) names.add(prop);
-      }
-
-      const vars = {};
-      names.forEach((name) => {
-        const value = computed.getPropertyValue(name).trim();
-        if (value) vars[name] = value;
-      });
-
-      const schemes = Array.from(
-        new Set(
-          Array.from(document.querySelectorAll('[data-color-scheme]')).map((el) =>
-            el.getAttribute('data-color-scheme')
-          )
-        )
-      ).filter(Boolean);
-
       // Resolved values alone are not enough. A component token is usually
       // written as `--scheme-widgets-cta-default: var(--scheme-colors-color-primary)`,
       // and resolving it stores the literal colour instead, breaking the link:
       // editing the general colour then changes nothing downstream. So the
       // authored text of each declaration is captured alongside the resolved
       // value, and the preview is built from that.
+      //
+      // Every custom property that reaches :root is captured, not only the
+      // --scheme-* ones. A scheme leans on the page's own tokens: the family
+      // lives in `--font-base`, and `--scheme-typography-h1-fontWeight-m` is
+      // written as `var(--font-weight-bold)`. Restricting the capture to the
+      // scheme namespace cost two things - the family could not be edited at
+      // all because nothing represented it, and since :root blocks are
+      // stripped from the CSS returned below, the preview lost the declaration
+      // too and rendered every specimen in a fallback face.
       const authored = {};
-      const declRe = /(--scheme-[A-Za-z0-9_-]+)\s*:\s*([^;}]+)/g;
+      const declRe = /(--[A-Za-z0-9_-]+)\s*:\s*([^;}]+)/g;
 
       const collectAuthored = (rules) => {
         for (const rule of rules) {
@@ -223,10 +187,52 @@ exports.handler = async (event) => {
       const inlineStyle = document.documentElement.style;
       for (let i = 0; i < inlineStyle.length; i++) {
         const prop = inlineStyle[i];
-        if (prop.indexOf('--scheme-') === 0) {
+        if (prop.indexOf('--') === 0) {
           authored[prop] = inlineStyle.getPropertyValue(prop).trim();
         }
       }
+
+      Object.keys(authored).forEach((name) => names.add(name));
+
+      // Vulcan can also inject a scheme value with no declaration anywhere to
+      // find, so --scheme-* names referenced in the CSS are collected as well.
+      // Anything that does not resolve to a value is dropped below, so a
+      // reference to an undefined variable cannot invent an entry.
+      const collectFrom = (rules) => {
+        for (const rule of rules) {
+          if (rule.cssRules) collectFrom(rule.cssRules);
+          const found = rule.cssText && rule.cssText.match(/--scheme-[A-Za-z0-9_-]+/g);
+          if (found) found.forEach((name) => names.add(name));
+        }
+      };
+
+      for (const sheet of document.styleSheets) {
+        try {
+          if (sheet.cssRules) collectFrom(sheet.cssRules);
+        } catch (err) {
+          // cross-origin stylesheet, unreadable by design
+        }
+      }
+
+      const computed = getComputedStyle(document.documentElement);
+      // Kept in case an engine does enumerate custom properties.
+      for (const prop of computed) {
+        if (prop.indexOf('--') === 0) names.add(prop);
+      }
+
+      const vars = {};
+      names.forEach((name) => {
+        const value = computed.getPropertyValue(name).trim();
+        if (value) vars[name] = value;
+      });
+
+      const schemes = Array.from(
+        new Set(
+          Array.from(document.querySelectorAll('[data-color-scheme]')).map((el) =>
+            el.getAttribute('data-color-scheme')
+          )
+        )
+      ).filter(Boolean);
 
       // An authored value is only safe to ship if every variable it references
       // was captured too: :root blocks are stripped from the CSS we return, so
@@ -302,6 +308,9 @@ exports.handler = async (event) => {
       pageFont,
       pageFontSize,
       varCount: Object.keys(root).length,
+      // Reported separately so the status line can say how much of the capture
+      // is the scheme itself and how much is the page's own tokens.
+      schemeCount: Object.keys(root).filter((name) => name.indexOf('--scheme-') === 0).length,
     });
   } catch (err) {
     return respond(500, { error: err && err.message ? err.message : 'Capture failed' });
