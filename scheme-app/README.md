@@ -165,6 +165,17 @@ tool made up would render here and nowhere else: the site has no `@font-face`
 or `@import` for it, so it would fall back to whatever happens to be installed
 on the next person's machine.
 
+Type one anyway and the row says **not loaded**. This is the one edit that
+changes the CSS and nothing else — the browser quietly falls through to the
+next family in the stack, so the field reads `"Henny Penny"` while the page
+keeps its old face and the tool looks broken. Availability is *measured*, not
+asked: `FontFaceSet.check()` answers true for a family nobody defines, because
+the text can indeed be drawn — in the fallback. So a fixed string is rendered
+in `"X", <generic>` and in `<generic>` alone and the widths compared, against
+three generics in case the face metric-matches one. A face the page declares
+but has not fetched yet measures like its fallback, so it is requested through
+`fonts.load()` and re-measured before being called missing.
+
 Because most typography sets declare a size and weight but no family, their
 specimens fall back to the page's own — read live from the preview, so editing
 `--font-base` restyles the specimens as well as the page. Reading it once at

@@ -427,6 +427,19 @@
     border-color: #6b5320;
     background: #2a2312;
   }
+  /* A family the page cannot render. Kept visually distinct from "unused":
+     that one is informational, this one means the preview in front of you is
+     showing a different font from the one in the field. */
+  .use.warn {
+    color: #8a1a1a;
+    border-color: #e08080;
+    background: #ffe8e8;
+  }
+  #editorPanel:not(.light) .use.warn {
+    color: #ff9d9d;
+    border-color: #6b2020;
+    background: #2a1212;
+  }
   .use.hidden { display: none; }
   .sv-var {
     font-size: 10.5px;
@@ -651,7 +664,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v28</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v29</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -880,6 +893,9 @@
     // Belong to the document that was just replaced.
     state.ruleIndex = null;
     state.usage = null;
+    // Which faces are available is a fact about the document that just went
+    // away, not about the one replacing it.
+    state.faceCache = null;
     els.inspectBtn.classList.toggle('active', state.inspecting);
 
     // A document we cannot reach means the iframe navigated to the live site
@@ -1099,6 +1115,96 @@
     var v = (value || '').trim();
     if (!v) return false;
     return /['"]/.test(v) || GENERIC_FAMILY.test(v);
+  }
+
+  // Typing a family the site does not load is the one edit that changes the
+  // CSS and nothing else: the browser silently falls through to the next
+  // family in the stack, so the field says "Henny Penny" while the page keeps
+  // rendering in its old face and the tool looks broken. The preview's own
+  // FontFaceSet is asked whether the face can actually be rendered - it is the
+  // authority, covering the page's @font-face rules, its imported sheets, and
+  // fonts installed on this machine alike.
+  function markFontAvailability(row, value) {
+    var warn = row._warn;
+    if (!warn) return;
+
+    var hide = function () {
+      warn.classList.add('hidden');
+    };
+
+    var first = displayFamily(value);
+    var doc = previewDoc();
+    // A stack of nothing but generic keywords always renders.
+    if (!doc || !doc.fonts || !first || GENERIC_FAMILY.test(first)) {
+      hide();
+      return;
+    }
+
+    var apply = function (available) {
+      // The row may have been re-rendered or edited again while a face loaded.
+      if (!row.isConnected || state.current[row._varName] !== value) return;
+      warn.classList.toggle('hidden', available);
+      warn.title =
+        first + ' is not among the faces this page loads, so the preview falls ' +
+        'back to the next family in the stack. Pick one from the field\'s list, ' +
+        'or add the font to the site itself.';
+    };
+
+    if (faceAvailable(doc, first)) {
+      apply(true);
+      return;
+    }
+
+    // A face the page declares but has not fetched yet measures like the
+    // fallback, so ask for it before concluding it is missing.
+    apply(false);
+    if (!doc.fonts || !doc.fonts.load) return;
+    try {
+      doc.fonts.load('16px "' + first.replace(/"/g, '') + '"').then(function () {
+        apply(faceAvailable(doc, first, true));
+      }, function () {
+        apply(false);
+      });
+    } catch (err) {
+      // FontFaceSet.load unavailable; the immediate result stands.
+    }
+  }
+
+  // Whether a face can actually be rendered, measured rather than asked.
+  // FontFaceSet.check() is no use here: for a family nobody defines it still
+  // answers true, because the text *can* be drawn - in the fallback. Rendering
+  // a fixed string in `"X", <generic>` and in `<generic>` alone and comparing
+  // widths is the only reliable test; if X exists the two differ. Three
+  // generics are tried, since a face that happens to metric-match one of them
+  // would look absent against that one alone.
+  function faceAvailable(doc, family, refresh) {
+    if (!doc.body) return true;
+    if (!state.faceCache) state.faceCache = {};
+    var key = family.toLowerCase();
+    if (!refresh && Object.prototype.hasOwnProperty.call(state.faceCache, key)) {
+      return state.faceCache[key];
+    }
+
+    var probe = doc.createElement('span');
+    probe.textContent = 'mmmlliWWW0Oo';
+    probe.style.cssText =
+      'position:absolute;left:-9999px;top:-9999px;font-size:72px;' +
+      'white-space:nowrap;visibility:hidden;';
+    doc.body.appendChild(probe);
+
+    var quoted = '"' + family.replace(/"/g, '') + '"';
+    var available = false;
+    ['monospace', 'serif', 'sans-serif'].forEach(function (generic) {
+      if (available) return;
+      probe.style.fontFamily = generic;
+      var base = probe.offsetWidth;
+      probe.style.fontFamily = quoted + ',' + generic;
+      if (probe.offsetWidth !== base) available = true;
+    });
+
+    doc.body.removeChild(probe);
+    state.faceCache[key] = available;
+    return available;
   }
 
   // What to call a font stack: the face that actually gets used, unquoted.
@@ -1506,6 +1612,11 @@
     var use = document.createElement('span');
     use.className = 'use hidden';
     label.appendChild(use);
+
+    var warn = document.createElement('span');
+    warn.className = 'use warn hidden';
+    warn.textContent = 'not loaded';
+    label.appendChild(warn);
     main.appendChild(label);
 
     // The complete name, always shown rather than truncated, so it can be read
@@ -1545,6 +1656,7 @@
     row._nameSwatch = swatch;
     row._resetBtn = resetBtn;
     row._use = use;
+    row._warn = warn;
     row._nameText = nameText;
     row._title = titleOverride || '';
 
@@ -1658,8 +1770,11 @@
       chip.style.fontFamily = value;
       if (fill) fill.style.display = 'none';
       row._nameText.title = row._varName + ' — currently ' + value;
+      markFontAvailability(row, value);
       return;
     }
+
+    if (row._warn) row._warn.classList.add('hidden');
 
     row._nameText.textContent = row._title || lastSegment(name);
     row._nameText.style.fontFamily = '';
