@@ -100,10 +100,26 @@
     font-size: 12px;
     color: var(--app-muted);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
+  #statusText { overflow: hidden; text-overflow: ellipsis; }
   #status.error { color: var(--app-danger); }
+  /* The offer to carry a colour change across the tokens that shared it. It
+     lives in the status bar, which already has its own fixed-height row, so
+     showing it cannot reflow the preview under the pointer. */
+  #cascadeBtn {
+    flex: 0 0 auto;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--app-accent);
+    background: var(--app-accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  #cascadeBtn.hidden { display: none; }
   #loginFields { display: none; gap: 8px; align-items: center; }
   #loginFields.open { display: flex; }
 
@@ -684,7 +700,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v30</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v31</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -698,7 +714,7 @@
       <button id="mobileBtn" class="seg" title="Mobile viewport (390px)">Mobile</button>
     </span>
   </header>
-  <div id="status"></div>
+  <div id="status"><span id="statusText"></span><button id="cascadeBtn" class="hidden"></button></div>
 
   <div id="body">
     <div id="editorPanel">
@@ -833,6 +849,8 @@
     darkBackdropBtn: document.getElementById('darkBackdropBtn'),
     svCopied: document.getElementById('svCopied'),
     status: document.getElementById('status'),
+    statusText: document.getElementById('statusText'),
+    cascadeBtn: document.getElementById('cascadeBtn'),
     filterInput: document.getElementById('filterInput'),
     groups: document.getElementById('groups'),
     resetAllBtn: document.getElementById('resetAllBtn'),
@@ -888,9 +906,13 @@
   els.resetAllBtn.addEventListener('click', function () {
     state.edits = {};
     state.current = Object.assign({}, state.original);
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
     renderGroups();
     applyEdits();
   });
+  els.cascadeBtn.addEventListener('click', applyCascade);
   els.exportBtn.addEventListener('click', openExport);
   els.exportCloseBtn.addEventListener('click', closeExport);
   els.exportCopyBtn.addEventListener('click', copyExport);
@@ -940,14 +962,14 @@
 
   function setStatus(text, isError) {
     state.lastStatus = text || '';
-    els.status.textContent = state.lastStatus;
+    els.statusText.textContent = state.lastStatus;
     els.status.classList.toggle('error', !!isError);
   }
 
   // Transient message shown while hovering, which must not overwrite the
   // real status that setStatus is holding.
   function setHoverStatus(text) {
-    els.status.textContent = text || state.lastStatus || '';
+    els.statusText.textContent = text || state.lastStatus || '';
     els.status.classList.remove('error');
   }
 
@@ -1068,6 +1090,9 @@
 
       state.original = data.root || {};
       state.current = Object.assign({}, state.original);
+      state.valueGroups = null;
+      state.cascade = null;
+      els.cascadeBtn.classList.add('hidden');
       // Authored text, so a token written as var(--other) keeps that link and
       // editing the variable it points at still changes it.
       state.authored = data.authored || Object.assign({}, state.original);
@@ -1483,6 +1508,7 @@
       var value = computed.getPropertyValue(name).trim();
       if (!value || value === state.current[name]) return;
       state.current[name] = value;
+      state.valueGroups = null;
       refreshRowsFor(name);
       refreshTypeSets(name);
     });
@@ -1859,12 +1885,26 @@
     var counts = usageCounts();
     if (row._use) {
       var used = counts ? counts[name] || 0 : null;
+      // "Unused" is the wrong word when a dozen other tokens carry the same
+      // colour. The general colour of a scheme built this way is referenced by
+      // nothing in the CSS - the CMS resolved it into each component token
+      // before the CSS existed - yet it is plainly the colour in use, and
+      // calling that unused reads as the tool being wrong about the page.
+      var shared = used === 0 ? sharing(value, name).length : 0;
       row._use.classList.toggle('hidden', used === null);
-      row._use.classList.toggle('unused', used === 0);
-      row._use.textContent = used === 0 ? 'unused' : used + '×';
-      row._use.title = used === 0
-        ? 'No rule in the captured CSS references this variable, so editing it will not change the page. The value it holds may still be applied somewhere hard-coded.'
-        : used + ' declaration' + (used === 1 ? '' : 's') + ' reference this variable';
+      row._use.classList.toggle('unused', used === 0 && !shared);
+      row._use.textContent =
+        used === 0 ? (shared ? 'shared ×' + shared : 'unused') : used + '×';
+      row._use.title =
+        used === 0
+          ? shared
+            ? 'No rule in the captured CSS references this variable — this scheme writes the ' +
+              'colour into each token instead. ' + shared + ' other token' +
+              (shared === 1 ? '' : 's') + ' hold the same value; change this one and the ' +
+              'status bar offers to carry it across to them.'
+            : 'No rule in the captured CSS references this variable, and no other token holds ' +
+              'its value, so editing it will not change the page.'
+          : used + ' declaration' + (used === 1 ? '' : 's') + ' reference this variable';
     }
 
     row._nameInput.value = value;
@@ -1958,18 +1998,113 @@
   }
 
   function updateValue(name, value) {
+    var before = state.current[name];
+
     // Back to the captured value means there is no edit any more, so the
     // authored declaration takes over again and dependents follow it.
     if (value === state.original[name]) delete state.edits[name];
     else state.edits[name] = value;
 
     state.current[name] = value;
+    state.valueGroups = null;
     applyVar(name);
+    offerCascade(name, before, value);
     // The same variable can be on screen twice (list + inspector); keep
     // every instance showing the same value.
     refreshRowsFor(name);
     refreshTypeSets(name);
     syncResolved();
+  }
+
+  // Tokens grouped by the colour they currently hold, so "what else is this
+  // orange?" is one lookup rather than a scan per row.
+  function colorKey(value) {
+    var paint = colorCss(value);
+    if (!paint) return '';
+    return String(toHexColor(paint) || paint).toLowerCase();
+  }
+
+  function valueGroups() {
+    if (state.valueGroups) return state.valueGroups;
+    var map = {};
+    Object.keys(state.current).forEach(function (name) {
+      var key = colorKey(state.current[name]);
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      map[key].push(name);
+    });
+    state.valueGroups = map;
+    return map;
+  }
+
+  function sharing(value, exclude) {
+    var group = valueGroups()[colorKey(value)] || [];
+    return group.filter(function (name) {
+      return name !== exclude;
+    });
+  }
+
+  // Whether a change to one colour can be carried across the tokens that held
+  // the same one.
+  //
+  // A scheme like this defines --scheme-colors-color-primary and then writes
+  // the same literal into every CTA and component token rather than
+  // `var(--scheme-colors-color-primary)`: the derivation happened in the CMS,
+  // before the CSS existed. So the general colour genuinely has no reference
+  // anywhere in the page's CSS, and no amount of CSS cascading can make
+  // editing it move the buttons. Where a var() chain does exist it already
+  // follows on its own; this covers the case where the link was flattened
+  // away, which is most of them.
+  //
+  // Offered rather than applied: a value can be shared by coincidence -
+  // #FFFFFF is every white in the scheme - and silently repainting thirty
+  // tokens because two happened to match would be worse than not offering.
+  function offerCascade(name, before, value) {
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+
+    if (!before || !value || before === value) return;
+    if (!colorCss(before) || !colorCss(value)) return;
+
+    var matches = sharing(before, name).filter(function (other) {
+      // Somebody already gave this token a value of its own; that is a
+      // decision, not something to overwrite.
+      return !Object.prototype.hasOwnProperty.call(state.edits, other);
+    });
+    if (!matches.length) return;
+
+    state.cascade = { names: matches, value: value, from: before };
+    els.cascadeBtn.textContent =
+      'Also update ' + matches.length + ' token' + (matches.length === 1 ? '' : 's') +
+      ' that were ' + before;
+    els.cascadeBtn.title =
+      'Set these to ' + value + ' as well:\n' +
+      matches.slice(0, 15).join('\n') +
+      (matches.length > 15 ? '\n… and ' + (matches.length - 15) + ' more' : '') +
+      '\n\nReset all undoes it.';
+    els.cascadeBtn.classList.remove('hidden');
+  }
+
+  function applyCascade() {
+    var pending = state.cascade;
+    if (!pending) return;
+
+    pending.names.forEach(function (other) {
+      state.edits[other] = pending.value;
+      state.current[other] = pending.value;
+      applyVar(other);
+    });
+
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+    refreshAllRows();
+    pending.names.forEach(refreshTypeSets);
+    syncResolved();
+    setStatus(
+      pending.names.length + ' more token' + (pending.names.length === 1 ? '' : 's') +
+      ' set to ' + pending.value + ' — Reset all undoes it'
+    );
   }
 
   function setBackdrop(backdrop) {

@@ -220,11 +220,31 @@ works as a search.
 Two different reasons, and the panel now names both, because otherwise the tool
 just looks broken.
 
-**Nothing references it.** Every row carries a usage count — `12×`, or a
+**Nothing references it.** Every row carries a usage count — `12×`, or an
 **unused** tag — counted from the declarations in the captured CSS. A scheme
 routinely defines a shelf of font families where the design wires up two;
 editing one of the rest cannot move the page, and the count says so before you
 spend time on it.
+
+**Its value was copied, not referenced.** This is the common one, and "unused"
+would be a misleading word for it. A scheme built through a CMS often defines
+`--scheme-colors-color-primary` and then writes the *same literal* into every
+CTA and component token rather than `var(--scheme-colors-color-primary)` — the
+derivation happened before the CSS existed. So the general colour genuinely has
+no reference anywhere in the page's CSS, while plainly being the colour you see.
+Those rows read **shared ×N** instead, naming how many tokens hold the same
+value.
+
+Change one and the status bar offers: **Also update N tokens that were
+#FF6B00**. Accept and they all move together; the preview repaints; **Reset
+all** undoes it. It is an offer rather than an automatic rewrite because a
+value can be shared by coincidence — `#FFFFFF` is every white in the scheme —
+and silently repainting thirty tokens because two happened to match would be
+worse than not offering at all. Tokens you have already edited yourself are
+left alone: that was a decision, not a coincidence.
+
+Where a real `var()` chain exists it still cascades on its own, with no offer
+needed — see below.
 
 **The value is written into the rule.** A title whose CSS says
 `font-family: "Kanit", sans-serif` outright has no variable to edit. Clicking it
