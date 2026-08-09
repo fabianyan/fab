@@ -700,7 +700,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v31</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v32</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -794,6 +794,11 @@
     authored: {},
     edits: {},
     pageFontSize: '',
+    // Tokens currently following a main colour, keyed by variable name with
+    // the role they follow. Kept so a second edit to the same colour - every
+    // step of a colour-picker drag is one - can keep moving them, while a
+    // token somebody set by hand stays put.
+    linked: {},
     // Families fetched from Google Fonts on request, keyed lowercase. They
     // survive a recapture, since they are a choice the user made rather than
     // anything belonging to the captured page.
@@ -905,6 +910,7 @@
   els.filterInput.addEventListener('input', renderGroups);
   els.resetAllBtn.addEventListener('click', function () {
     state.edits = {};
+    state.linked = {};
     state.current = Object.assign({}, state.original);
     state.valueGroups = null;
     state.cascade = null;
@@ -1092,6 +1098,7 @@
       state.current = Object.assign({}, state.original);
       state.valueGroups = null;
       state.cascade = null;
+      state.linked = {};
       els.cascadeBtn.classList.add('hidden');
       // Authored text, so a token written as var(--other) keeps that link and
       // editing the variable it points at still changes it.
@@ -2007,13 +2014,26 @@
 
     state.current[name] = value;
     state.valueGroups = null;
+    // Editing a token directly takes it out of any colour's orbit.
+    delete state.linked[name];
     applyVar(name);
+
+    var followed = applyRoleCascade(name, before, value);
+    // Whatever else held that colour but is not named for it stays an offer.
     offerCascade(name, before, value);
+
     // The same variable can be on screen twice (list + inspector); keep
     // every instance showing the same value.
     refreshRowsFor(name);
     refreshTypeSets(name);
     syncResolved();
+
+    if (followed) {
+      setStatus(
+        lastSegment(name) + ' → ' + value + ' · ' + followed + ' ' + roleOf(name) +
+        ' token' + (followed === 1 ? '' : 's') + ' followed'
+      );
+    }
   }
 
   // Tokens grouped by the colour they currently hold, so "what else is this
@@ -2042,6 +2062,73 @@
     return group.filter(function (name) {
       return name !== exclude;
     });
+  }
+
+  // A scheme's main colours: --scheme-colors-color-primary and its siblings,
+  // the ones a designer thinks of as "the brand colour" rather than as one
+  // component's setting.
+  var MAIN_COLOR = /^--scheme-colors?-color-([A-Za-z0-9]+)$/;
+
+  function roleOf(name) {
+    var match = String(name).match(MAIN_COLOR);
+    return match ? match[1].toLowerCase() : '';
+  }
+
+  // The words in a variable name, with camelCase split apart, so
+  // `--scheme-colors-cta-primary-default` and `--scheme-colors-background-primaryDark`
+  // both read as carrying "primary".
+  function nameWords(name) {
+    return String(name)
+      .replace(/^--/, '')
+      .split('-')
+      .reduce(function (words, part) {
+        return words.concat(
+          part.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/)
+        );
+      }, [])
+      .filter(Boolean);
+  }
+
+  function namedFor(role, name) {
+    return nameWords(name).indexOf(role) !== -1;
+  }
+
+  // Editing a main colour moves the tokens that are plainly the same colour by
+  // another name: `--scheme-colors-cta-primary-default` carries "primary" and
+  // holds the identical value, so it is the brand colour restated, not a
+  // coincidence. Both tests have to pass. The name alone would drag
+  // `background-primary` (a near-white) along with the brand orange; the value
+  // alone would drag every unrelated token that happens to be #FFFFFF.
+  //
+  // Shades derived from the colour rather than equal to it - a hover #FF5421
+  // against a default #FF6B00 - are deliberately left alone: nothing in the
+  // capture says how that shade was computed, and guessing at it would be
+  // inventing a relationship the CSS never stated.
+  function applyRoleCascade(name, before, value) {
+    var role = roleOf(name);
+    if (!role || before === value) return 0;
+    if (!colorCss(before) || !colorCss(value)) return 0;
+
+    var followers = sharing(before, name).filter(function (other) {
+      // Already tied to this colour - by an earlier step of the same drag, or
+      // by accepting the offer below. Keep it moving.
+      if (state.linked[other] === role) return true;
+      if (!namedFor(role, other)) return false;
+      // Anything else somebody set by hand is their decision, not ours.
+      return !Object.prototype.hasOwnProperty.call(state.edits, other);
+    });
+
+    followers.forEach(function (other) {
+      state.linked[other] = role;
+      state.edits[other] = value;
+      state.current[other] = value;
+      applyVar(other);
+      refreshRowsFor(other);
+      refreshTypeSets(other);
+    });
+
+    if (followers.length) state.valueGroups = null;
+    return followers.length;
   }
 
   // Whether a change to one colour can be carried across the tokens that held
@@ -2073,10 +2160,10 @@
     });
     if (!matches.length) return;
 
-    state.cascade = { names: matches, value: value, from: before };
+    state.cascade = { names: matches, value: value, from: before, role: roleOf(name) };
     els.cascadeBtn.textContent =
-      'Also update ' + matches.length + ' token' + (matches.length === 1 ? '' : 's') +
-      ' that were ' + before;
+      'Also update ' + matches.length +
+      (matches.length === 1 ? ' token that was ' : ' tokens that were ') + before;
     els.cascadeBtn.title =
       'Set these to ' + value + ' as well:\n' +
       matches.slice(0, 15).join('\n') +
@@ -2090,6 +2177,9 @@
     if (!pending) return;
 
     pending.names.forEach(function (other) {
+      // Saying yes once ties them to the colour, so the next edit - the next
+      // step of a picker drag - carries them along without asking again.
+      if (pending.role) state.linked[other] = pending.role;
       state.edits[other] = pending.value;
       state.current[other] = pending.value;
       applyVar(other);

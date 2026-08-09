@@ -235,13 +235,28 @@ no reference anywhere in the page's CSS, while plainly being the colour you see.
 Those rows read **shared ×N** instead, naming how many tokens hold the same
 value.
 
-Change one and the status bar offers: **Also update N tokens that were
-#FF6B00**. Accept and they all move together; the preview repaints; **Reset
-all** undoes it. It is an offer rather than an automatic rewrite because a
-value can be shared by coincidence — `#FFFFFF` is every white in the scheme —
-and silently repainting thirty tokens because two happened to match would be
-worse than not offering at all. Tokens you have already edited yourself are
-left alone: that was a decision, not a coincidence.
+**Editing a main colour carries its own tokens with it.** Change
+`--scheme-colors-color-primary` and every token that is *named for that role
+and holds the identical value* — `--scheme-colors-cta-primary-default`,
+`--scheme-components-button-primary-text` — follows immediately, no prompt.
+That is the brand colour restated under another name, not a coincidence.
+
+Both tests have to pass, and each one alone is wrong. The name alone would drag
+`background-primary` (a near-white) along with the brand orange. The value alone
+would drag every unrelated token that happens to be `#FFFFFF`. Names are matched
+by word with camelCase split apart, so `primaryDark` counts as carrying
+"primary".
+
+Shades *derived* from the colour rather than equal to it — a hover `#FF5421`
+against a default `#FF6B00` — are deliberately left where they are. Nothing in
+the capture says how that shade was computed, and guessing would invent a
+relationship the CSS never stated.
+
+Anything else that merely shared the old value is offered instead: **Also
+update N tokens that were #FF6B00**, with the exact list in its tooltip.
+Accept and they move too — and stay tied to that colour, so the next edit
+carries them without asking again. Tokens you set by hand are never
+overwritten: that was a decision. **Reset all** undoes the lot.
 
 Where a real `var()` chain exists it still cascades on its own, with no offer
 needed — see below.
