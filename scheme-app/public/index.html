@@ -546,6 +546,7 @@
     border: 1px solid var(--panel-line);
     flex-shrink: 0;
   }
+  .decl-usage.inactive { opacity: 0.5; font-style: italic; }
   #inspectorEmpty { color: var(--panel-dim); font-size: 11.5px; }
   .row.highlight {
     background: rgba(91, 140, 255, 0.14);
@@ -608,7 +609,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">cascade-v23</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">media-v24</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -631,11 +632,11 @@
         <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it">Inspect</button>
       </div>
       <div id="backdropBar">
+        <span class="sv-hint">Backdrop</span>
         <span id="backdropToggle">
           <button id="darkBackdropBtn" class="seg active" title="Judge colours against a dark background">Dark</button>
           <button id="lightBackdropBtn" class="seg" title="Judge colours against a light background">Light</button>
         </span>
-        <span class="sv-hint">backdrop</span>
       </div>
       <div id="inspector">
         <div id="inspectorHead">
@@ -1711,7 +1712,7 @@
     state.selected = el;
     outlineElement(el);
 
-    var direct = schemeDeclsFor(el);
+    var direct = markOverridden(schemeDeclsFor(el));
     var inherited = schemeDeclsInherited(el);
     var inside = schemeDeclsInside(el);
     renderInspector(el, direct, inherited, inside);
@@ -1769,24 +1770,30 @@
     var index = [];
     var seen = {};
 
-    function walk(rules) {
+    // The enclosing @media condition travels with each declaration. A
+    // responsive scheme sets the same property once per breakpoint, so without
+    // it every breakpoint's rule looks equally in force and one element appears
+    // to have two font sizes at once.
+    function walk(rules, media) {
       for (var i = 0; i < rules.length; i++) {
         var rule = rules[i];
         if (rule.cssRules && !rule.selectorText) {
-          walk(rule.cssRules);
+          var condition = rule.conditionText || (rule.media && rule.media.mediaText) || '';
+          walk(rule.cssRules, condition ? (media ? media + ' and ' + condition : condition) : media);
           continue;
         }
         if (!rule.selectorText || !rule.style) continue;
 
         var decls = authoredDeclarations(rule);
         for (var j = 0; j < decls.length; j++) {
-          var key = decls[j].prop + '|' + decls[j].value + '|' + rule.selectorText;
+          var key = decls[j].prop + '|' + decls[j].value + '|' + rule.selectorText + '|' + (media || '');
           if (seen[key]) continue;
           seen[key] = true;
           index.push({
             prop: decls[j].prop,
             expr: decls[j].value,
             selector: rule.selectorText,
+            media: media || '',
             vars: extractVarNames(decls[j].value),
           });
         }
@@ -1800,11 +1807,39 @@
       } catch (err) {
         continue;
       }
-      if (rules) walk(rules);
+      if (rules) walk(rules, '');
     }
 
     state.ruleIndex = index;
     return index;
+  }
+
+  // Whether a rule's media condition holds at the preview's current width. A
+  // declaration behind a query that does not currently match is real but is not
+  // what the element is painted with.
+  function mediaApplies(media) {
+    if (!media) return true;
+    var doc = previewDoc();
+    if (!doc || !doc.defaultView || !doc.defaultView.matchMedia) return true;
+    try {
+      return doc.defaultView.matchMedia(media).matches;
+    } catch (err) {
+      return true;
+    }
+  }
+
+  // Marks every declaration that matches the current width but loses to a
+  // later one for the same property, so only the winner shows a resolved value.
+  function markOverridden(decls) {
+    var lastLive = {};
+    decls.forEach(function (d, i) {
+      d.overridden = false;
+      if (mediaApplies(d.media)) lastLive[d.prop] = i;
+    });
+    decls.forEach(function (d, i) {
+      if (mediaApplies(d.media) && lastLive[d.prop] !== i) d.overridden = true;
+    });
+    return decls;
   }
 
   // Declarations applying to the element itself.
@@ -2003,17 +2038,34 @@
           usage.appendChild(chip);
         }
 
+        // Two separate reasons a declaration is not what you are looking at:
+        // its query does not match the current width, or it matches but a later
+        // one for the same property wins. Either way its resolved value would
+        // be misleading beside it.
+        var live = mediaApplies(d.media);
+        var note = '';
+        if (!live) note = '  (not at this width)';
+        else if (d.overridden) note = '  (overridden)';
+        if (note) {
+          resolved = '';
+          usage.classList.add('inactive');
+        }
+
         var text = document.createElement('span');
         text.className = 'text';
         text.textContent =
           d.prop + ' · ' + d.selector +
           (resolved ? ' → ' + resolved : '') +
           (d.count > 1 ? '  ×' + d.count : '') +
-          (d.from ? '  ↑ ' + d.from : '');
+          (d.from ? '  ↑ ' + d.from : '') +
+          (d.media ? '  @' + d.media : '') + note;
         usage.appendChild(text);
         usage.title =
+          (d.media ? '@media ' + d.media + '\n' : '') +
           d.selector + ' { ' + d.prop + ': ' + d.expr + ' }' +
-          (d.from ? '\ninherited from ' + d.from : '');
+          (d.from ? '\ninherited from ' + d.from : '') +
+          (live ? '' : '\nThis breakpoint does not apply at the current preview width.') +
+          (live && d.overridden ? '\nA later declaration for this property wins.' : '');
 
         wrap.appendChild(usage);
       });
