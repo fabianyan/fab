@@ -30,6 +30,34 @@ The frontend posts to **`/api/capture`** — where Vercel serves functions from 
 and `netlify.toml` redirects `/api/*` onto the Netlify function, so one path
 works on both and the page never has to know where it is running.
 
+## Updating the live app
+
+The deployed site is built from **`fabianyan/schema-editor`, branch `main`**.
+Push to `main` and Vercel builds and publishes it; there is no other step and
+no manual deploy.
+
+To check which build a browser is actually showing, read the tag beside the
+title in the header (`vercel-v34`). It is bumped with every change, so a stale
+tag means a cached page rather than a failed deploy — reload.
+
+To change something:
+
+```bash
+git clone https://github.com/fabianyan/schema-editor
+cd schema-editor && npm install
+npm run dev            # local, same code as production
+# edit public/index.html or lib/capture.js, try it locally
+git commit -am "what changed" && git push      # this deploys
+```
+
+To undo a bad deploy, either promote the previous deployment in the Vercel
+dashboard (instant, no build) or `git revert` and push (slower, but keeps the
+repo and the live site telling the same story).
+
+The same app also lives in `fabianyan/fab` under `scheme-app/`, kept in step by
+hand. Nothing deploys from there — it is a copy, and the live one is
+`schema-editor`.
+
 ## Local development
 
 ```bash
