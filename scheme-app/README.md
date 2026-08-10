@@ -37,7 +37,7 @@ Push to `main` and Vercel builds and publishes it; there is no other step and
 no manual deploy.
 
 To check which build a browser is actually showing, read the tag beside the
-title in the header (`vercel-v34`). It is bumped with every change, so a stale
+title in the header (`inspect-v37`). It is bumped with every change, so a stale
 tag means a cached page rather than a failed deploy — reload.
 
 To change something:
@@ -72,7 +72,7 @@ iframe immediately.
 
 ## How it works
 
-1. Frontend POSTs `{ url, user?, pass? }` to `/.netlify/functions/capture`.
+1. Frontend POSTs `{ url, user?, pass?, device? }` to `/api/capture`.
 2. The function launches Chromium (`@sparticuz/chromium` + `puppeteer-core`),
    optionally authenticates via `page.authenticate` (credentials are used
    in-request only, never stored), and navigates to the URL.
@@ -332,19 +332,34 @@ into that list would slow every inspection down.
 
 ## Browsing between pages
 
-Clicking a link in the preview loads that page: the click is intercepted and
-turned into a fresh capture of the link's URL, the same path as typing it in
-the box. Shift-click a link to inspect its styling instead of following it,
-and hover any link to see where it goes.
+**The Inspect toggle decides what a click does.** With inspect **off**, the
+preview behaves like the page: clicking a link captures that URL — the same
+path as typing it in the box — and an in-page anchor scrolls to its target.
+With inspect **on**, every click inspects, links included, and nothing
+navigates.
 
-**A link to this same page is not navigation.** A button-styled anchor like
-`https://www.casino.com/#Guides` resolves to the document already on screen, so
-capturing it would spend ten seconds rebuilding that page and throw the
-selection away — exactly when someone clicked a button *because* they wanted to
-see what styles it. Those clicks inspect instead, and still scroll the preview
-to the anchor, since the default scroll was suppressed along with every other
-navigation. Hovering one says `↓ jumps within this page` rather than showing a
-URL, so it does not read as a dead link.
+That split matters because a CTA is nearly always a link. When a plain click
+browsed regardless of mode, the one kind of element people most want to look at
+was the one they could not click on, and reaching it took a modifier key nobody
+knew was there. Shift is now the escape hatch in the other direction: shift-click
+follows a link even with inspect on. Hovering says which is which.
+
+Anchors within the page do not scroll while inspecting either. Moving the page
+under the pointer is the last thing wanted from a click meant to select
+something. Hovering one reads `↓ jumps within this page` rather than showing a
+URL, so it does not look like a dead link.
+
+**A link to this same page was never navigation to begin with.** A button-styled
+anchor like `https://www.casino.com/#Guides` resolves to the document already on
+screen, so capturing it would spend ten seconds rebuilding that page and throw
+the selection away. Only bare `#fragment` hrefs used to be recognised as
+same-document; an absolute URL to the current page is now too.
+
+If the preview does end up somewhere else — a `target=_blank`, or anything this
+app did not render — the status bar says so and points at **↻ Recapture**. That
+is checked two ways, because a readable document is not necessarily *our*
+document: the handlers failing to attach catches the cross-origin case, and the
+absence of the variables block, which only this app writes, catches the rest.
 
 That interception is unconditional, and has to be. The captured body holds
 the site's real `<a href>` links, and a sandboxed iframe is still permitted
@@ -403,7 +418,8 @@ Two limits worth knowing:
 
 Inspect is on by default: hovering the preview outlines elements, and
 clicking one opens a panel showing every captured variable that styles
-it — `font-family: var(--font-titles)` included, since that is exactly the
+it. While it is on nothing navigates - a link inspects like anything else,
+and shift-click follows it — `font-family: var(--font-titles)` included, since that is exactly the
 declaration someone clicking a heading is looking for. Each variable appears as the **same editable row used in the main
 list** — swatch, color picker, text field, and reset — so you can change a
 value straight from the inspector and watch the page repaint. A variable

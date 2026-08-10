@@ -704,7 +704,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">anchors-v36</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v37</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -724,7 +724,7 @@
     <div id="editorPanel">
       <div id="editorToolbar">
         <input id="filterInput" type="text" placeholder="Filter variables…" />
-        <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it">Inspect</button>
+        <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it. While this is on, clicking a link inspects it rather than loading it - shift-click to follow it instead.">Inspect</button>
       </div>
       <div id="backdropBar">
         <span class="sv-hint">Backdrop</span>
@@ -962,7 +962,17 @@
     // this app thinks it is showing. Say so instead of leaving the editor
     // pointed at a page that is no longer displayed.
     if (Object.keys(state.edits).length) applyEdits();
-    if (!attachPreviewHandlers() && state.pageUrl) {
+
+    // Two ways the preview can stop being the document this app rendered: it
+    // navigated somewhere unreadable (the usual, cross-origin case), or it
+    // navigated somewhere readable, which the handlers alone cannot tell from
+    // our own render. The variables block is only ever written by us, so its
+    // absence is the reliable signal. Either way the editor would otherwise go
+    // on describing a page that is no longer on screen.
+    var attached = attachPreviewHandlers();
+    var doc = previewDoc();
+    var ours = !doc || !!doc.getElementById('scheme-app-vars');
+    if (state.pageUrl && (!attached || !ours)) {
       setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
     }
     // A re-rendered preview is a fresh document, so anything fetched for it
@@ -1161,7 +1171,7 @@
         (others ? ' · ' + others + ' page-level, ' + data.schemeCount + ' scheme' : '') +
         (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
         (carried ? ' · ' + carried + ' edit' + (carried === 1 ? '' : 's') + ' kept' : '') +
-        (state.inspecting ? ' · click an element to inspect, a link to browse' : '')
+        (state.inspecting ? ' · click anything to inspect it · shift-click a link to follow it' : ' · click a link to browse')
       );
     } catch (err) {
       setStatus(err.message || 'Failed to load page', true);
@@ -2593,7 +2603,7 @@
     // look exactly like links but clicking one inspects instead of loading.
     var href = linkTargetOf(e.target);
     var hint = href
-      ? '→ ' + href + '   (click to load · shift-click to inspect)'
+      ? '→ ' + href + '   (click to inspect · shift-click to load it)'
       : fragmentTargetOf(e.target)
         ? '↓ jumps within this page   (click to inspect it)'
         : '';
@@ -2611,18 +2621,27 @@
 
     // A plain click on a link browses to it by capturing that URL.
     // Shift-click falls through to inspecting the link element itself.
-    var href = e.shiftKey ? null : linkTargetOf(e.target);
-    if (href) {
-      loadPage(href);
-      return;
-    }
+    // With inspect on, a click inspects whatever it lands on, links included.
+    // A CTA is nearly always a link, so a mode that browsed instead could not
+    // be used to look at the one kind of element people most want to look at -
+    // and it took a modifier key nobody knew about to get at it. Shift is the
+    // way out, following the link instead. With inspect off the preview
+    // behaves like the page: clicks browse.
+    var navigating = state.inspecting ? e.shiftKey : !e.shiftKey;
 
-    // An anchor within this page still moves the preview, since the default
-    // scroll was suppressed above - but it is styling, not navigation, so the
-    // click also selects it.
-    var anchor = e.shiftKey ? null : fragmentTargetOf(e.target);
-    if (anchor && anchor.scrollIntoView) {
-      anchor.scrollIntoView({ block: 'start' });
+    if (navigating) {
+      var href = linkTargetOf(e.target);
+      if (href) {
+        loadPage(href);
+        return;
+      }
+
+      // An anchor within this page still moves the preview, since the default
+      // scroll was suppressed above.
+      var anchor = fragmentTargetOf(e.target);
+      if (anchor && anchor.scrollIntoView) {
+        anchor.scrollIntoView({ block: 'start' });
+      }
     }
 
     if (state.inspecting) selectElement(e.target);
