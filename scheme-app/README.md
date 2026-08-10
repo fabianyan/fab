@@ -337,6 +337,15 @@ turned into a fresh capture of the link's URL, the same path as typing it in
 the box. Shift-click a link to inspect its styling instead of following it,
 and hover any link to see where it goes.
 
+**A link to this same page is not navigation.** A button-styled anchor like
+`https://www.casino.com/#Guides` resolves to the document already on screen, so
+capturing it would spend ten seconds rebuilding that page and throw the
+selection away — exactly when someone clicked a button *because* they wanted to
+see what styles it. Those clicks inspect instead, and still scroll the preview
+to the anchor, since the default scroll was suppressed along with every other
+navigation. Hovering one says `↓ jumps within this page` rather than showing a
+URL, so it does not read as a dead link.
+
 That interception is unconditional, and has to be. The captured body holds
 the site's real `<a href>` links, and a sandboxed iframe is still permitted
 to navigate *itself* — so an un-intercepted click loads the live site

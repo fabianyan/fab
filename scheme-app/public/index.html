@@ -704,7 +704,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v35</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">anchors-v36</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -2589,10 +2589,17 @@
     if (!e.target || e.target.id === OVERLAY_ID) return;
     outlineElement(e.target);
 
+    // Same-document anchors say so rather than reading as dead elements: they
+    // look exactly like links but clicking one inspects instead of loading.
     var href = linkTargetOf(e.target);
-    if (href !== state.hoverHref) {
-      setHoverStatus(href ? '→ ' + href + '   (click to load · shift-click to inspect)' : '');
-      state.hoverHref = href;
+    var hint = href
+      ? '→ ' + href + '   (click to load · shift-click to inspect)'
+      : fragmentTargetOf(e.target)
+        ? '↓ jumps within this page   (click to inspect it)'
+        : '';
+    if (hint !== state.hoverHref) {
+      setHoverStatus(hint);
+      state.hoverHref = hint;
     }
   }
 
@@ -2608,6 +2615,14 @@
     if (href) {
       loadPage(href);
       return;
+    }
+
+    // An anchor within this page still moves the preview, since the default
+    // scroll was suppressed above - but it is styling, not navigation, so the
+    // click also selects it.
+    var anchor = e.shiftKey ? null : fragmentTargetOf(e.target);
+    if (anchor && anchor.scrollIntoView) {
+      anchor.scrollIntoView({ block: 'start' });
     }
 
     if (state.inspecting) selectElement(e.target);
@@ -2626,7 +2641,61 @@
     try {
       var resolved = new URL(raw, state.pageUrl || state.base);
       if (!/^https?:$/.test(resolved.protocol)) return null;
+      // A link that spells out the current page and differs only by its
+      // fragment goes nowhere: `https://www.casino.com/#Guides` is this very
+      // document. Capturing it again would spend ten seconds rebuilding the
+      // page that is already on screen and throw the selection away - which is
+      // what happened when someone clicked a button-styled anchor expecting to
+      // see what styles it.
+      if (sameDocument(resolved)) return null;
       return resolved.toString();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function sameDocument(resolved) {
+    try {
+      var here = new URL(state.pageUrl || state.base);
+      return (
+        resolved.origin === here.origin &&
+        resolved.pathname === here.pathname &&
+        resolved.search === here.search
+      );
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // The element a same-document link points at, so the preview can move to it
+  // the way the real page would. The default scroll is suppressed along with
+  // every other navigation, so it has to be done here or not at all.
+  function fragmentTargetOf(node) {
+    var el = node;
+    while (el && el.nodeType === 1 && el.tagName !== 'A') el = el.parentElement;
+    if (!el || el.nodeType !== 1) return null;
+
+    var raw = el.getAttribute('href');
+    if (!raw) return null;
+
+    var hash = '';
+    if (raw.charAt(0) === '#') {
+      hash = raw.slice(1);
+    } else {
+      try {
+        var resolved = new URL(raw, state.pageUrl || state.base);
+        if (!sameDocument(resolved)) return null;
+        hash = resolved.hash.replace(/^#/, '');
+      } catch (err) {
+        return null;
+      }
+    }
+
+    if (!hash) return null;
+    var doc = previewDoc();
+    if (!doc) return null;
+    try {
+      return doc.getElementById(hash) || doc.querySelector('[name="' + hash + '"]');
     } catch (err) {
       return null;
     }
