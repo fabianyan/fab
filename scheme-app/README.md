@@ -208,6 +208,19 @@ preview and the panel, so a face the site has never carried can still be judged
 on the real page. It is a button, never automatic: it calls a third party, and
 it shows you something the site cannot render yet.
 
+Above the list, **Load N fonts from Google** does the whole set at once, which
+is the usual case: a scheme names twenty faces, the page loads two, and
+choosing between them one click at a time is twenty clicks for one decision.
+The count is what is actually missing — families the page already renders are
+not re-fetched — and the tooltip lists them. Families Google does not have are
+reported rather than passed over silently (`4 families loaded · 1 not on Google
+Fonts`), and the button stays, showing only what is still missing.
+
+Fetched faces are *asked for* before the panel re-measures. Declaring
+`@font-face` does not fetch anything — a browser loads a face when something
+needs it — so measuring straight after injecting still sees the fallback, and
+every row would flash "not loaded" until some later refresh caught up.
+
 That caveat travels with the work rather than being left as a surprise. The
 status line says *preview only*, and **Export CSS** puts the matching
 `@import` above the `:root` block with a comment saying it has to be added too

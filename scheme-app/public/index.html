@@ -415,6 +415,10 @@
   }
   #backdropBar .sv-hint { font-size: 11px; color: var(--panel-dim); }
   #backdropBar button.seg { padding: 4px 10px; font-size: 12px; }
+  /* Pushed to the far end: it acts on the whole list, not on the backdrop
+     beside it. */
+  #loadAllFontsBtn { margin-left: auto; padding: 4px 10px; font-size: 11px; }
+  #loadAllFontsBtn.hidden { display: none; }
 
   .sv-count { font-weight: 400; color: var(--panel-dim); }
 
@@ -700,7 +704,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">vercel-v34</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">fonts-v35</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -728,6 +732,7 @@
           <button id="darkBackdropBtn" class="seg active" title="Judge colours against a dark background">Dark</button>
           <button id="lightBackdropBtn" class="seg" title="Judge colours against a light background">Light</button>
         </span>
+        <button id="loadAllFontsBtn" class="secondary hidden"></button>
       </div>
       <div id="inspector">
         <div id="inspectorHead">
@@ -851,6 +856,7 @@
     previewWrap: document.getElementById('previewWrap'),
     editorPanel: document.getElementById('editorPanel'),
     lightBackdropBtn: document.getElementById('lightBackdropBtn'),
+    loadAllFontsBtn: document.getElementById('loadAllFontsBtn'),
     darkBackdropBtn: document.getElementById('darkBackdropBtn'),
     svCopied: document.getElementById('svCopied'),
     status: document.getElementById('status'),
@@ -919,6 +925,7 @@
     applyEdits();
   });
   els.cascadeBtn.addEventListener('click', applyCascade);
+  els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
   els.exportBtn.addEventListener('click', openExport);
   els.exportCloseBtn.addEventListener('click', closeExport);
   els.exportCopyBtn.addEventListener('click', copyExport);
@@ -1241,17 +1248,16 @@
   // it calls a third party, and it puts a font in front of you that the site
   // cannot render until someone adds the import to it. That caveat travels
   // with the export rather than being left as a surprise.
-  async function loadGoogleFont(family) {
+  async function fetchGoogleFont(family) {
     var name = String(family || '').replace(/["']/g, '').trim();
-    if (!name || state.googleFonts[name.toLowerCase()]) return;
+    if (!name) return false;
+    if (state.googleFonts[name.toLowerCase()]) return true;
 
     var base = 'https://fonts.googleapis.com/css2?family=' +
       encodeURIComponent(name).replace(/%20/g, '+');
     // The weight axis is asked for first so weight edits show, and dropped on
     // a second try: a family with only static weights answers 400 to a range.
     var candidates = [base + ':wght@100..900&display=swap', base + '&display=swap'];
-
-    setStatus('Fetching ' + name + ' from Google Fonts…');
 
     for (var i = 0; i < candidates.length; i++) {
       try {
@@ -1265,21 +1271,137 @@
           url: candidates[i],
           css: css,
         };
-        injectGoogleFonts();
-        // The measurement that said this face was missing is now stale.
-        state.faceCache = null;
-        refreshAllRows();
-        setStatus(
-          name + ' loaded for preview only — the site cannot render it until the ' +
-          '@import is added there, and Export CSS now carries that line.'
-        );
-        return;
+        return true;
       } catch (err) {
-        // try the next form, then report
+        // try the next form, then give up on this family
       }
     }
 
-    setStatus('Could not fetch ' + name + ' from Google Fonts', true);
+    return false;
+  }
+
+  // Everything that has to happen once faces have arrived: put them in both
+  // documents, throw away the measurements that said they were missing, and
+  // let every row look again.
+  async function adoptFetchedFonts() {
+    injectGoogleFonts();
+
+    // Declaring @font-face does not fetch anything: a browser loads a face
+    // when something needs it. Measuring straight after injecting therefore
+    // still sees the fallback, and every row would flash "not loaded" until
+    // some later refresh happened to catch up. Asking for each face first
+    // means the panel updates once, and correctly.
+    var doc = previewDoc();
+    var pending = [];
+    Object.keys(state.googleFonts).forEach(function (key) {
+      var spec = '16px "' + state.googleFonts[key].family.replace(/"/g, '') + '"';
+      [document, doc].forEach(function (target) {
+        if (!target || !target.fonts || !target.fonts.load) return;
+        pending.push(target.fonts.load(spec).catch(function () {}));
+      });
+    });
+
+    try {
+      await Promise.all(pending);
+    } catch (err) {
+      // A face that will not load is reported by the row that asked for it.
+    }
+
+    state.faceCache = null;
+    refreshAllRows();
+  }
+
+  var PREVIEW_ONLY_NOTE =
+    ' for preview only — the site cannot render ' +
+    'them until the @import is added there, and Export CSS carries those lines.';
+
+  async function loadGoogleFont(family) {
+    var name = String(family || '').replace(/["']/g, '').trim();
+    if (!name || state.googleFonts[name.toLowerCase()]) return;
+
+    setStatus('Fetching ' + name + ' from Google Fonts…');
+    var loaded = await fetchGoogleFont(name);
+    if (!loaded) {
+      setStatus('Could not fetch ' + name + ' from Google Fonts', true);
+      return;
+    }
+
+    await adoptFetchedFonts();
+    setStatus(name + ' loaded' + PREVIEW_ONLY_NOTE.replace('them', 'it'));
+  }
+
+  // The families the scheme names but the page cannot render. A scheme
+  // routinely lists twenty faces and loads two, and fetching them one row at a
+  // time to see what they look like is twenty clicks for one decision.
+  function missingFamilies() {
+    var doc = previewDoc();
+    var seen = {};
+    var out = [];
+
+    Object.keys(state.current).forEach(function (name) {
+      var value = state.current[name];
+      if (!isFamilyValue(value) && !/font-?family/i.test(name)) return;
+
+      var first = displayFamily(value);
+      if (!first || GENERIC_FAMILY.test(first)) return;
+
+      var key = first.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+
+      if (state.googleFonts[key]) return;
+      if (doc && faceAvailable(doc, first)) return;
+      out.push(first);
+    });
+
+    return out;
+  }
+
+  async function loadAllGoogleFonts() {
+    var missing = missingFamilies();
+    if (!missing.length) return;
+
+    els.loadAllFontsBtn.disabled = true;
+    els.loadAllFontsBtn.textContent = 'Fetching…';
+
+    var done = 0;
+    var loaded = 0;
+    setStatus('Fetching ' + missing.length + ' families from Google Fonts…');
+
+    await Promise.all(
+      missing.map(function (name) {
+        return fetchGoogleFont(name).then(function (ok) {
+          done++;
+          if (ok) loaded++;
+          setStatus('Fetching from Google Fonts… ' + done + '/' + missing.length);
+        });
+      })
+    );
+
+    await adoptFetchedFonts();
+    els.loadAllFontsBtn.disabled = false;
+    updateLoadAllButton();
+
+    var absent = missing.length - loaded;
+    setStatus(
+      (loaded ? loaded + ' famil' + (loaded === 1 ? 'y' : 'ies') + ' loaded' : 'None loaded') +
+      (loaded ? PREVIEW_ONLY_NOTE : '') +
+      (absent ? ' · ' + absent + ' not on Google Fonts' : ''),
+      !loaded
+    );
+  }
+
+  function updateLoadAllButton() {
+    var missing = missingFamilies();
+    els.loadAllFontsBtn.classList.toggle('hidden', !missing.length);
+    if (!missing.length) return;
+    els.loadAllFontsBtn.textContent =
+      'Load ' + missing.length + ' font' + (missing.length === 1 ? '' : 's') + ' from Google';
+    els.loadAllFontsBtn.title =
+      'Fetch every family this scheme names that the page cannot render, so they ' +
+      'can be compared on the real page:\n' + missing.slice(0, 15).join('\n') +
+      (missing.length > 15 ? '\n… and ' + (missing.length - 15) + ' more' : '') +
+      '\n\nPreview only — the site still needs the @import, which Export CSS includes.';
   }
 
   // Into both documents: the preview so the page renders in it, and this one
@@ -1882,6 +2004,7 @@
     for (var i = 0; i < rows.length; i++) {
       if (rows[i]._varName) refreshRow(rows[i]);
     }
+    updateLoadAllButton();
   }
 
   function refreshRow(row) {
