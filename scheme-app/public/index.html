@@ -642,6 +642,23 @@
     flex-shrink: 0;
   }
   .decl-usage.inactive { opacity: 0.5; font-style: italic; }
+  /* Kept in the tree, out of the way until asked for. */
+  .inspect-var .decl-usage.folded { display: none; }
+  .inspect-var.show-folded .decl-usage.folded { display: flex; }
+  .decl-more {
+    display: block;
+    margin-left: 28px;
+    padding: 1px 0;
+    border: 0;
+    background: none;
+    color: var(--panel-dim);
+    font-size: 10px;
+    font-family: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .decl-more:hover { color: var(--panel-fg); }
   #inspectorEmpty { color: var(--panel-dim); font-size: 11.5px; }
   .row.highlight {
     background: rgba(91, 140, 255, 0.14);
@@ -704,7 +721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v37</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v38</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -3164,6 +3181,13 @@
       row.querySelector('.name').title = name + ' — click to find it in the list below';
       wrap.appendChild(row);
 
+      // Declarations that are not in force are still worth having - the mobile
+      // size is real, it is just not what this width renders - but listing them
+      // beside the ones that are turns the panel into a wall where half the
+      // rows say "ignore me", and the answer to "what styles this?" gets lost
+      // among them. They collapse behind a count instead.
+      var quiet = [];
+
       usages[name].forEach(function (d) {
         var usage = document.createElement('div');
         usage.className = 'decl-usage';
@@ -3212,8 +3236,37 @@
           (live ? '' : '\nThis breakpoint does not apply at the current preview width.') +
           (live && d.overridden ? '\nA later declaration for this property wins.' : '');
 
+        if (note) {
+          usage.classList.add('folded');
+          quiet.push(usage);
+        }
         wrap.appendChild(usage);
       });
+
+      if (quiet.length) {
+        var toggle = document.createElement('button');
+        toggle.className = 'decl-more';
+        // Named by reason, so the count is not a mystery: a breakpoint that
+        // does not apply here is a different thing from a rule that lost.
+        var offWidth = quiet.filter(function (node) {
+          return node.textContent.indexOf('not at this width') !== -1;
+        }).length;
+        var reason = offWidth === quiet.length
+          ? 'other breakpoints'
+          : offWidth
+            ? 'other breakpoints · overridden'
+            : 'overridden';
+        toggle.textContent = '+' + quiet.length + ' not in force (' + reason + ')';
+        toggle.addEventListener('click', function () {
+          var open = wrap.classList.toggle('show-folded');
+          toggle.textContent = open
+            ? 'hide ' + quiet.length + ' not in force'
+            : '+' + quiet.length + ' not in force (' + reason + ')';
+        });
+        // After the live ones, so what is actually painting the element reads
+        // first.
+        wrap.appendChild(toggle);
+      }
 
       els.inspectorBody.appendChild(wrap);
     });

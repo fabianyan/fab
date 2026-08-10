@@ -37,7 +37,7 @@ Push to `main` and Vercel builds and publishes it; there is no other step and
 no manual deploy.
 
 To check which build a browser is actually showing, read the tag beside the
-title in the header (`inspect-v37`). It is bumped with every change, so a stale
+title in the header (`inspect-v38`). It is bumped with every change, so a stale
 tag means a cached page rather than a failed deploy — reload.
 
 To change something:
@@ -427,7 +427,15 @@ shown in both places stays in sync.
 
 Under each row are the declarations that reference it (`background-color ·
 .cta → rgb(10, 125, 51)`), so you can see which properties and selectors
-it drives. Clicking the variable's name scrolls to its row in the main
+it drives.
+
+Only the ones in force are listed. A responsive scheme declares the same
+property once per breakpoint, so at any one width most of them are dead — and
+a list where half the rows say "ignore me" is a list you stop reading, with the
+answer to "what styles this?" lost among them. The rest collapse behind
+**+3 not in force (other breakpoints · overridden)**, which names the reason
+and opens on click. They are still there because they are still real: the
+mobile size is a thing you may want to edit while looking at desktop. Clicking the variable's name scrolls to its row in the main
 list. Use **↑** to walk up to the parent element, and the **Inspect**
 button to toggle the mode off.
 
