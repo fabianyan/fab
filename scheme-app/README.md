@@ -37,7 +37,7 @@ Push to `main` and Vercel builds and publishes it; there is no other step and
 no manual deploy.
 
 To check which build a browser is actually showing, read the tag beside the
-title in the header (`inspect-v38`). It is bumped with every change, so a stale
+title in the header (`auth-v39`). It is bumped with every change, so a stale
 tag means a cached page rather than a failed deploy — reload.
 
 To change something:
@@ -330,6 +330,22 @@ variable ones, since the "inside this element" scope tests every indexed rule
 against a `querySelectorAll` and folding thousands of hard-coded declarations
 into that list would slow every inspection down.
 
+## Reading a protected site
+
+The stylesheets are fetched **from inside the page**, not from the function.
+The browser has already answered the basic-auth challenge and holds the
+session cookies; a `fetch` from the function has neither. Against a protected
+dev site every stylesheet therefore came back 401 and was dropped silently —
+and because the variables are read from the live page rather than from the
+CSS, the capture still reported hundreds of variables while the preview
+rendered with no styling at all. It looked exactly like a broken site.
+
+Anything the page cannot fetch itself — a cross-origin asset host with no CORS
+headers — is retried from the function, carrying an `Authorization` header
+built from the same credentials. And if a stylesheet still cannot be read, the
+status bar says so (`⚠ 2 of 5 stylesheets could not be read`) instead of
+leaving an unstyled preview to be interpreted.
+
 ## Browsing between pages
 
 **The Inspect toggle decides what a click does.** With inspect **off**, the
@@ -536,9 +552,11 @@ or a lighter wait strategy.
 3. **Large-page response size.** Real pages can be 1–2 MB of HTML+CSS JSON.
    Confirm this is acceptable through the function response; consider gzip
    or trimming to main content if it's slow.
-4. **Auth edge cases.** Verify `page.authenticate` works through the
-   deployed function against a real basic-auth-protected dev site, and that
-   the target's IP allowlist (if any) permits Netlify's egress IPs.
+4. **Auth edge cases.** `page.authenticate` covers the page, and the
+   stylesheets are now fetched from inside that authenticated page rather than
+   from the function, which is what a protected dev site needs — see below.
+   Still unverified: whether the target's IP allowlist (if any) permits the
+   host's egress IPs.
 
 ## Open decisions (product/security, not code)
 

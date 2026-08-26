@@ -721,7 +721,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">inspect-v38</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">auth-v39</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1158,6 +1158,8 @@
       state.pageFont = data.pageFont || '';
       state.pageFontSize = data.pageFontSize || '';
       state.schemeNames = data.schemeNames || [];
+      state.cssMissing = data.cssMissing || 0;
+      state.cssCount = data.cssCount || 0;
       els.recaptureBtn.disabled = false;
       // Spell out the target, so it is clear this is tied to the previewed
       // page and not to the input box.
@@ -1188,7 +1190,12 @@
         (others ? ' · ' + others + ' page-level, ' + data.schemeCount + ' scheme' : '') +
         (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
         (carried ? ' · ' + carried + ' edit' + (carried === 1 ? '' : 's') + ' kept' : '') +
-        (state.inspecting ? ' · click anything to inspect it · shift-click a link to follow it' : ' · click a link to browse')
+        (state.cssMissing
+          ? ' · ⚠ ' + state.cssMissing + ' of ' + state.cssCount +
+            ' stylesheets could not be read — the preview is missing its styling'
+          : '') +
+        (state.inspecting ? ' · click anything to inspect it · shift-click a link to follow it' : ' · click a link to browse'),
+        state.cssMissing > 0
       );
     } catch (err) {
       setStatus(err.message || 'Failed to load page', true);

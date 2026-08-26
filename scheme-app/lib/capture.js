@@ -281,21 +281,53 @@ async function runCapture(payload) {
         .filter(Boolean)
     );
 
+    // Fetch the stylesheets from inside the page, not from here. The browser
+    // is already authenticated - page.authenticate answers the basic-auth
+    // challenge for every request it makes, and it holds the session cookies
+    // too. A fetch from Node has neither, so on a protected site every
+    // stylesheet came back 401 and was silently dropped: the variables still
+    // loaded (they are read from the live page) while the preview rendered
+    // with no CSS at all, which looks exactly like a broken site.
+    const fetched = await page.evaluate(async (hrefs) => {
+      const out = [];
+      for (const href of hrefs) {
+        try {
+          const res = await fetch(href, { credentials: 'include' });
+          out.push(res.ok ? await res.text() : '');
+        } catch (err) {
+          // Cross-origin without CORS headers - retried from Node below,
+          // where the same-origin policy does not apply.
+          out.push('');
+        }
+      }
+      return out;
+    }, stylesheetUrls);
+
     await browser.close();
     browser = null;
 
+    // Whatever the page could not fetch itself, try from here - carrying the
+    // credentials this time, so a protected asset host still works.
+    const authHeader = user
+      ? { Authorization: 'Basic ' + Buffer.from(`${user}:${pass || ''}`).toString('base64') }
+      : undefined;
+
     const cssParts = await Promise.all(
-      stylesheetUrls.map(async (href) => {
-        try {
-          const res = await fetch(href);
-          if (!res.ok) return '';
-          const text = await res.text();
-          return absolutizeUrls(stripRootBlocks(text), href);
-        } catch (err) {
-          return '';
+      stylesheetUrls.map(async (href, i) => {
+        let text = fetched[i];
+        if (!text) {
+          try {
+            const res = await fetch(href, authHeader ? { headers: authHeader } : undefined);
+            text = res.ok ? await res.text() : '';
+          } catch (err) {
+            text = '';
+          }
         }
+        return text ? absolutizeUrls(stripRootBlocks(text), href) : '';
       })
     );
+
+    const cssMissing = cssParts.filter((part) => !part).length;
 
     return result(200, {
       root,
@@ -311,6 +343,10 @@ async function runCapture(payload) {
       pageFont,
       pageFontSize,
       varCount: Object.keys(root).length,
+      // A stylesheet that could not be read is why a preview renders naked.
+      // Reporting it turns a mystery into a message.
+      cssCount: stylesheetUrls.length,
+      cssMissing: cssMissing,
       // Reported separately so the status line can say how much of the capture
       // is the scheme itself and how much is the page's own tokens.
       schemeCount: Object.keys(root).filter((name) => name.indexOf('--scheme-') === 0).length,
