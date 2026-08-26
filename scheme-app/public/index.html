@@ -681,8 +681,17 @@
     justify-content: center;
     z-index: 10;
   }
-  #exportModal.open { display: flex; }
-  #exportBox {
+  #exportModal.open, #importModal.open { display: flex; }
+  #importModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #importBox, #exportBox {
     background: var(--app-panel);
     border: 1px solid var(--app-border);
     border-radius: 8px;
@@ -690,7 +699,10 @@
     width: 520px;
     max-width: 90vw;
   }
-  #exportBox h2 { margin: 0 0 10px; font-size: 14px; }
+  #importBox h2, #exportBox h2 { margin: 0 0 10px; font-size: 14px; }
+  #importHint { font-size: 12px; color: var(--app-muted); margin-bottom: 8px; }
+  #importReport { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  #importReport.error { color: var(--app-danger); }
   #exportModes { display: flex; margin-bottom: 8px; }
   #exportSummary {
     font-size: 12px;
@@ -698,7 +710,7 @@
     margin-bottom: 8px;
     min-height: 16px;
   }
-  #exportText {
+  #importText, #exportText {
     width: 100%;
     height: 260px;
     background: var(--app-bg);
@@ -710,7 +722,7 @@
     padding: 10px;
     resize: vertical;
   }
-  #exportActions {
+  #importActions, #exportActions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -721,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">auth-v39</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">import-v40</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -762,6 +774,7 @@
       <div id="groups"></div>
       <div id="editorFooter">
         <button id="resetAllBtn" class="secondary">Reset all</button>
+        <button id="importBtn" class="secondary" title="Paste a :root block to preview a scheme this page does not have yet">Import CSS…</button>
         <button id="exportBtn">Export CSS…</button>
       </div>
     </div>
@@ -773,6 +786,27 @@
 </div>
 
 <div id="svCopied"></div>
+
+<div id="importModal">
+  <div id="importBox">
+    <h2>Import CSS</h2>
+    <div id="importHint">
+      Paste a <code>:root</code> block — a whole scheme file is fine. Every
+      custom property in it is applied to the page on screen as an edit, so a
+      scheme that has not been deployed anywhere can still be seen on the real
+      site. <strong>Reset all</strong> puts it back.
+    </div>
+    <textarea id="importText" spellcheck="false" placeholder=":root {
+  --v-palette-brand-primary-default: #ffdf1b;
+  ...
+}"></textarea>
+    <div id="importReport"></div>
+    <div id="importActions">
+      <button id="importCloseBtn" class="secondary">Cancel</button>
+      <button id="importApplyBtn">Apply to page</button>
+    </div>
+  </div>
+</div>
 
 <div id="exportModal">
   <div id="exportBox">
@@ -883,6 +917,12 @@
     groups: document.getElementById('groups'),
     resetAllBtn: document.getElementById('resetAllBtn'),
     exportBtn: document.getElementById('exportBtn'),
+    importBtn: document.getElementById('importBtn'),
+    importModal: document.getElementById('importModal'),
+    importText: document.getElementById('importText'),
+    importReport: document.getElementById('importReport'),
+    importCloseBtn: document.getElementById('importCloseBtn'),
+    importApplyBtn: document.getElementById('importApplyBtn'),
     preview: document.getElementById('preview'),
     placeholder: document.getElementById('placeholder'),
     exportModal: document.getElementById('exportModal'),
@@ -944,6 +984,9 @@
   els.cascadeBtn.addEventListener('click', applyCascade);
   els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
   els.exportBtn.addEventListener('click', openExport);
+  els.importBtn.addEventListener('click', openImport);
+  els.importCloseBtn.addEventListener('click', closeImport);
+  els.importApplyBtn.addEventListener('click', applyImport);
   els.exportCloseBtn.addEventListener('click', closeExport);
   els.exportCopyBtn.addEventListener('click', copyExport);
   els.exportDownloadBtn.addEventListener('click', downloadExport);
@@ -3303,6 +3346,125 @@
       out[name] = state.edits[name];
     });
     return out;
+  }
+
+  // Every custom-property declaration in a pasted stylesheet, in order, last
+  // one winning. Selectors are ignored on purpose: a scheme file is one :root
+  // block, and being strict about that would reject the half-dozen shapes the
+  // same content arrives in (a `html {}` wrapper, a fragment with no braces at
+  // all, a paste that starts mid-file).
+  function parseCssVariables(text) {
+    var clean = String(text || '').replace(/\/\*[\s\S]*?\*\//g, '');
+    var out = {};
+    var order = [];
+    var depth = 0;
+    var current = '';
+    var parts = [];
+
+    // Split on semicolons that are not inside parentheses, so a value like
+    // `rgba(0, 0, 0, .5)` or a multi-line filter() survives intact. Only
+    // parentheses count: a brace opens a block, not a value, and counting it
+    // would mean no declaration inside `:root { … }` ever ended.
+    for (var i = 0; i < clean.length; i++) {
+      var ch = clean.charAt(i);
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (ch === ';' && depth <= 0) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    parts.push(current);
+
+    parts.forEach(function (part) {
+      // A declaration can be preceded by a selector and a brace on the same
+      // chunk (`:root {  --a: 1`), so start at the last brace.
+      var brace = part.lastIndexOf('{');
+      var decl = brace === -1 ? part : part.slice(brace + 1);
+      var match = decl.match(/(--[A-Za-z0-9_-]+)\s*:\s*([\s\S]+)/);
+      if (!match) return;
+      var name = match[1];
+      var value = match[2].replace(/\}[\s\S]*$/, '').trim();
+      if (!value) return;
+      if (!Object.prototype.hasOwnProperty.call(out, name)) order.push(name);
+      out[name] = value;
+    });
+
+    return { values: out, order: order };
+  }
+
+  function openImport() {
+    els.importText.value = '';
+    els.importReport.textContent = '';
+    els.importReport.classList.remove('error');
+    els.importModal.classList.add('open');
+    els.importText.focus();
+  }
+
+  function closeImport() {
+    els.importModal.classList.remove('open');
+  }
+
+  // Applies a pasted scheme as edits. Edits, not a new capture: the page stays
+  // the one on screen, every value stays revertible with Reset all, and Export
+  // CSS gives back the merged result.
+  function applyImport() {
+    var parsed = parseCssVariables(els.importText.value);
+    var names = parsed.order;
+
+    if (!names.length) {
+      els.importReport.textContent = 'No custom properties found — expected lines like "--v-palette-brand-primary-default: #ffdf1b;".';
+      els.importReport.classList.add('error');
+      return;
+    }
+
+    var changed = 0;
+    var added = 0;
+    var same = 0;
+
+    names.forEach(function (name) {
+      var value = parsed.values[name];
+      var known = Object.prototype.hasOwnProperty.call(state.original, name);
+
+      if (!known) {
+        // A token this page does not define. It still gets applied - that is
+        // the point of importing a scheme the site has not been given yet -
+        // and an empty original means Reset all removes it again.
+        state.original[name] = '';
+        added++;
+      } else if (state.original[name] === value) {
+        same++;
+      } else {
+        changed++;
+      }
+
+      if (value === state.original[name]) delete state.edits[name];
+      else state.edits[name] = value;
+      state.current[name] = value;
+      delete state.linked[name];
+    });
+
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+
+    // The imported scheme may name families the page never loaded; the panel's
+    // own font check picks those up once the rows exist.
+    renderFontOptions();
+    renderGroups();
+    applyEdits();
+
+    var unused = Object.keys(state.current).length - names.length;
+    closeImport();
+    setStatus(
+      'Imported ' + names.length + ' variables · ' + changed + ' changed' +
+      (added ? ' · ' + added + ' new to this page' : '') +
+      (same ? ' · ' + same + ' already matched' : '') +
+      (unused > 0 ? ' · ' + unused + ' on the page the file does not set' : '') +
+      ' — Reset all undoes it'
+    );
   }
 
   function openExport() {

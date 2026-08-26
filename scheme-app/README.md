@@ -37,7 +37,7 @@ Push to `main` and Vercel builds and publishes it; there is no other step and
 no manual deploy.
 
 To check which build a browser is actually showing, read the tag beside the
-title in the header (`auth-v39`). It is bumped with every change, so a stale
+title in the header (`import-v40`). It is bumped with every change, so a stale
 tag means a cached page rather than a failed deploy — reload.
 
 To change something:
@@ -329,6 +329,34 @@ ancestor is listed once. Literal declarations are indexed separately from
 variable ones, since the "inside this element" scope tests every indexed rule
 against a `querySelectorAll` and folding thousands of hard-coded declarations
 into that list would slow every inspection down.
+
+## Importing a scheme
+
+**Import CSS…** takes a pasted `:root` block — a whole scheme file is fine —
+and applies every custom property in it to the page currently on screen.
+
+This is how a scheme that exists nowhere yet gets seen on the real site. The
+usual case: the tokens are written, but they live in a repo seed that has not
+been imported into the environment's database, so the site still serves the old
+values and there is no way to look at the new ones. Paste the file and the page
+in the preview wears them immediately.
+
+The values arrive as **edits**, not as a new capture: the page stays the one
+you loaded, every row shows as changed, **Reset all** puts it back, and Export
+CSS gives you the merged result. A token the page does not have is added rather
+than dropped — that is the point, since a new scheme usually introduces some —
+and its row behaves like any other.
+
+The report says what landed: `Imported 662 variables · 610 changed · 51 new to
+this page · 12 on the page the file does not set`. That last number is the one
+worth reading — tokens the site uses that the pasted file has no value for.
+
+Selectors in the paste are ignored. A scheme file is one `:root` block, and
+being strict about that would reject the shapes the same content arrives in: a
+`html {}` wrapper, a fragment with no braces, a copy that starts mid-file. Only
+parentheses group a value, so `rgba(0, 0, 0, .5)` and multi-line `filter()`
+survive intact. A paste with no custom properties in it is refused with a
+message rather than silently doing nothing.
 
 ## Reading a protected site
 
