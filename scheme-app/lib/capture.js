@@ -70,7 +70,8 @@ async function launchBrowser() {
 // request over in different shapes, and the browser work has nothing to do
 // with either of them. Returns { status, data } for an adapter to send.
 async function runCapture(payload) {
-  const { url, user, pass } = payload || {};
+  const { url } = payload || {};
+  let { user, pass } = payload || {};
   if (!url || typeof url !== 'string') {
     return result(400, { error: 'Missing "url"' });
   }
@@ -87,6 +88,20 @@ async function runCapture(payload) {
   if (!/^https?:$/.test(targetUrl.protocol)) {
     return result(400, { error: 'URL must be http or https' });
   }
+
+  // Credentials pasted into the URL - https://user:pass@host - are how people
+  // actually share a protected dev site, and they were being thrown away: the
+  // fields were the only source, so page.authenticate never ran. A browser
+  // sends URL credentials on the first navigation and nothing after it, so the
+  // page loaded while nine of its ten stylesheets came back 401, leaving a
+  // preview with no styling. They are lifted out here and stripped from the
+  // URL, so every later request is authenticated the same way.
+  if (targetUrl.username && !user) {
+    user = decodeURIComponent(targetUrl.username);
+    pass = decodeURIComponent(targetUrl.password || '');
+  }
+  targetUrl.username = '';
+  targetUrl.password = '';
 
   let browser;
   try {
@@ -275,11 +290,38 @@ async function runCapture(payload) {
       return clone.outerHTML;
     });
 
-    const stylesheetUrls = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-        .map((el) => el.href)
-        .filter(Boolean)
+    // Every stylesheet the document actually has, in document order - not just
+    // the <link> ones. A framework-built site keeps most of its CSS in <style>
+    // blocks the server rendered or the bundler injected, and collecting only
+    // links meant fetching a handful of vendor files and none of the styling:
+    // the capture reported no missing stylesheets while the preview rendered
+    // as bare text.
+    //
+    // Where the rules are readable they are serialised straight from CSSOM,
+    // which also picks up anything JavaScript added after load. A cross-origin
+    // sheet throws on .cssRules and is left to be fetched by URL below.
+    const sheets = await page.evaluate(() =>
+      Array.from(document.styleSheets).map((sheet) => {
+        const node = sheet.ownerNode;
+        let text = '';
+        if (node && node.tagName === 'STYLE') {
+          text = node.textContent || '';
+        } else {
+          try {
+            if (sheet.cssRules) {
+              text = Array.from(sheet.cssRules)
+                .map((rule) => rule.cssText)
+                .join('\n');
+            }
+          } catch (err) {
+            // cross-origin: unreadable here, fetched below
+          }
+        }
+        return { href: sheet.href || '', text: text };
+      })
     );
+
+    const stylesheetUrls = sheets.map((sheet) => sheet.href);
 
     // Fetch the stylesheets from inside the page, not from here. The browser
     // is already authenticated - page.authenticate answers the basic-auth
@@ -288,11 +330,20 @@ async function runCapture(payload) {
     // stylesheet came back 401 and was silently dropped: the variables still
     // loaded (they are read from the live page) while the preview rendered
     // with no CSS at all, which looks exactly like a broken site.
-    const fetched = await page.evaluate(async (hrefs) => {
+    const fetched = await page.evaluate(async (list) => {
       const out = [];
-      for (const href of hrefs) {
+      for (const sheet of list) {
+        // Already have the rules - no request needed at all.
+        if (sheet.text) {
+          out.push(sheet.text);
+          continue;
+        }
+        if (!sheet.href) {
+          out.push('');
+          continue;
+        }
         try {
-          const res = await fetch(href, { credentials: 'include' });
+          const res = await fetch(sheet.href, { credentials: 'include' });
           out.push(res.ok ? await res.text() : '');
         } catch (err) {
           // Cross-origin without CORS headers - retried from Node below,
@@ -301,7 +352,7 @@ async function runCapture(payload) {
         }
       }
       return out;
-    }, stylesheetUrls);
+    }, sheets);
 
     await browser.close();
     browser = null;
@@ -313,17 +364,19 @@ async function runCapture(payload) {
       : undefined;
 
     const cssParts = await Promise.all(
-      stylesheetUrls.map(async (href, i) => {
+      sheets.map(async (sheet, i) => {
         let text = fetched[i];
-        if (!text) {
+        if (!text && sheet.href) {
           try {
-            const res = await fetch(href, authHeader ? { headers: authHeader } : undefined);
+            const res = await fetch(sheet.href, authHeader ? { headers: authHeader } : undefined);
             text = res.ok ? await res.text() : '';
           } catch (err) {
             text = '';
           }
         }
-        return text ? absolutizeUrls(stripRootBlocks(text), href) : '';
+        // An inline <style> has no URL of its own; its relative urls resolve
+        // against the page, which is what the preview's <base> already points at.
+        return text ? absolutizeUrls(stripRootBlocks(text), sheet.href || landedUrl.toString()) : '';
       })
     );
 

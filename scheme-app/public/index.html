@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">import-v40</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v41</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -3455,6 +3455,7 @@
     renderFontOptions();
     renderGroups();
     applyEdits();
+    resolveImported(names);
 
     var unused = Object.keys(state.current).length - names.length;
     closeImport();
@@ -3465,6 +3466,34 @@
       (unused > 0 ? ' · ' + unused + ' on the page the file does not set' : '') +
       ' — Reset all undoes it'
     );
+  }
+
+  // A scheme file is written in references - `--v-surface-button:
+  // var(--v-palette-brand-primary-default)` - so a freshly imported row would
+  // show that text and no swatch, which tells a designer nothing about the
+  // colour they just pasted. The authored text is what gets applied and
+  // exported; what the row *shows* is the value it resolves to on the page,
+  // read back the same way a capture reads one.
+  function resolveImported(names) {
+    var doc = previewDoc();
+    if (!doc) return;
+
+    var computed = doc.defaultView.getComputedStyle(doc.documentElement);
+    names.forEach(function (name) {
+      var authored = state.edits[name];
+      if (!authored || authored.indexOf('var(') === -1) return;
+
+      var resolved = computed.getPropertyValue(name).trim();
+      if (!resolved || resolved === state.current[name]) return;
+
+      // The reference stays the thing that is applied and exported; only the
+      // display value follows the page.
+      state.authored[name] = authored;
+      state.current[name] = resolved;
+      refreshRowsFor(name);
+      refreshTypeSets(name);
+    });
+    state.valueGroups = null;
   }
 
   function openExport() {

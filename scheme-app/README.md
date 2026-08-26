@@ -37,7 +37,7 @@ Push to `main` and Vercel builds and publishes it; there is no other step and
 no manual deploy.
 
 To check which build a browser is actually showing, read the tag beside the
-title in the header (`import-v40`). It is bumped with every change, so a stale
+title in the header (`styles-v41`). It is bumped with every change, so a stale
 tag means a cached page rather than a failed deploy — reload.
 
 To change something:
@@ -86,7 +86,14 @@ iframe immediately.
    `getPropertyValue('--x')` resolves it. It also collects any
    `data-color-scheme` names and captures the post-JS `<body>` HTML with
    `<script>` tags stripped.
-4. It fetches the page's linked stylesheets and strips their `:root { ... }`
+4. It collects **every stylesheet the document has, in document order** — not
+   just the `<link>` ones. A framework-built site keeps most of its CSS in
+   `<style>` blocks the server rendered or the bundler injected; collecting
+   only links fetched a handful of vendor files, reported nothing missing, and
+   left the preview rendering as bare text. Where the rules are readable they
+   are serialised straight from CSSOM, which also picks up anything JavaScript
+   added after load; a cross-origin sheet throws on `.cssRules` and is fetched
+   by URL instead. It then strips their `:root { ... }`
    blocks (the resolved values are already captured in step 3 — this avoids
    the iframe re-deriving stale/default values from the raw CSS). Two rewrites
    keep the typefaces alive through that step, and both are load-bearing: a
@@ -359,6 +366,14 @@ survive intact. A paste with no custom properties in it is refused with a
 message rather than silently doing nothing.
 
 ## Reading a protected site
+
+**Credentials in the URL count.** `https://user:pass@host` is how a protected
+dev site actually gets shared, and taking them only from the Basic Auth fields
+threw them away: `page.authenticate` never ran, so the browser answered the
+first navigation with the URL's credentials — as browsers do — and then failed
+every subsequent request. Nine of ten stylesheets came back 401 and the preview
+had no styling. They are now lifted out of the URL and stripped from it, so
+every later request is authenticated the same way.
 
 The stylesheets are fetched **from inside the page**, not from the function.
 The browser has already answered the basic-auth challenge and holds the
