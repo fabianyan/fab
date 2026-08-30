@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v41</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v42</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -832,6 +832,7 @@
     current: {},
     css: '',
     body: '',
+    htmlAttrs: {},
     base: '',
     schemeNames: [],
     pageUrl: '',
@@ -1195,6 +1196,7 @@
 
       state.css = data.css || '';
       state.body = data.body || '';
+      state.htmlAttrs = data.htmlAttrs || {};
       state.base = data.base || '';
       state.pageUrl = data.pageUrl || url;
       state.capturedDevice = data.device || state.device;
@@ -1652,17 +1654,33 @@
       .join('\n');
   }
 
+  // A theme class, a data-theme or the class a font loader hangs its --font-*
+  // variables off all live on <html>. Without them every rule keyed to one of
+  // them misses and a fully captured page still renders unstyled.
+  function htmlAttrsText() {
+    var attrs = state.htmlAttrs || {};
+    return Object.keys(attrs)
+      .map(function (name) {
+        if (!/^[A-Za-z_:][-A-Za-z0-9_:.]*$/.test(name)) return '';
+        return ' ' + name + '="' + String(attrs[name]).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"';
+      })
+      .join('');
+  }
+
   function renderPreview() {
     // Base is the captured page's own URL, not just its origin, so relative
     // links and assets in a subdirectory resolve the way they do on the
     // real site.
-    var doc = '<!doctype html><html><head><base href="' + (state.pageUrl || state.base + '/') + '">' +
+    // state.body is the captured <body> element, tag and all, so it is dropped
+    // in as the document's body rather than nested inside another one.
+    var doc = '<!doctype html><html' + htmlAttrsText() + '><head><base href="' +
+      (state.pageUrl || state.base + '/') + '">' +
       // Without this the iframe uses a desktop-sized layout viewport and
       // width-based media queries never fire at phone widths.
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<style id="scheme-app-css">' + state.css + '</style>' +
       '<style id="scheme-app-vars">' + buildRootBlock(state.authored) + '</style>' +
-      '</head><body>' + state.body + '</body></html>';
+      '</head>' + state.body + '</html>';
 
     els.preview.style.display = '';
     els.placeholder.style.display = 'none';

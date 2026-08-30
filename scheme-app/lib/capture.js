@@ -290,6 +290,21 @@ async function runCapture(payload) {
       return clone.outerHTML;
     });
 
+    // The <html> element carries a site's theme hooks - a theme class, a
+    // data-theme, a dir, and the generated class a font loader hangs its
+    // --font-* variables off. Rendering the preview with a bare <html> made
+    // every rule keyed to one of those miss, so a fully captured page still
+    // came out looking unstyled. `style` is deliberately left out: the custom
+    // properties it holds are already in `authored`, and re-applying it as an
+    // inline style would outrank the editor's own :root block.
+    const htmlAttrs = await page.evaluate(() => {
+      const out = {};
+      Array.from(document.documentElement.attributes).forEach((attr) => {
+        if (attr.name.toLowerCase() !== 'style') out[attr.name] = attr.value;
+      });
+      return out;
+    });
+
     // Every stylesheet the document actually has, in document order - not just
     // the <link> ones. A framework-built site keeps most of its CSS in <style>
     // blocks the server rendered or the bundler injected, and collecting only
@@ -387,6 +402,7 @@ async function runCapture(payload) {
       authored,
       css: hoistImports(cssParts.join('\n\n')),
       body,
+      htmlAttrs,
       base: `${landedUrl.protocol}//${landedUrl.host}`,
       // The full post-redirect URL, so the preview can resolve relative links
       // and assets against the actual page rather than just the origin.
