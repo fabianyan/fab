@@ -401,6 +401,10 @@ async function runCapture(payload) {
       ? { Authorization: 'Basic ' + Buffer.from(`${user}:${pass || ''}`).toString('base64') }
       : undefined;
 
+    // Rules this pipeline removes on purpose, per sheet, so the preview
+    // having fewer rules than the live page can be told apart from damage.
+    const rootsDropped = [];
+
     const cssParts = await Promise.all(
       sheets.map(async (sheet, i) => {
         let text = fetched[i];
@@ -415,7 +419,9 @@ async function runCapture(payload) {
         if (!text) return '';
         // An inline <style> has no URL of its own; its relative urls resolve
         // against the page, which is what the preview's <base> already points at.
-        text = absolutizeUrls(stripRootVars(text), sheet.href || landedUrl.toString());
+        const stats = { dropped: 0 };
+        text = absolutizeUrls(stripRootVars(text, stats), sheet.href || landedUrl.toString());
+        rootsDropped[i] = stats.dropped;
         // The media attribute lives on the element, not in the file. Every
         // sheet lands in one <style>, so the restriction has to be written
         // back in or a print-only sheet paints the screen.
@@ -433,6 +439,7 @@ async function runCapture(payload) {
       media: sheet.media,
       disabled: sheet.disabled,
       rules: sheet.rules,
+      rootsDropped: rootsDropped[i] || 0,
       bytes: cssParts[i].length,
     }));
 
@@ -497,7 +504,7 @@ function normalizeUrl(raw) {
 // like `:root { font-size: 62.5% }`, and every rem on the page then measured
 // against 16px instead of 10px - a page that captured perfectly and rendered
 // at the wrong size everywhere.
-function stripRootVars(css) {
+function stripRootVars(css, stats) {
   return css.replace(/(^|[\s,{}])(:root\b[^{}]*)\{([^{}]*)\}/g, (whole, lead, selector, body) => {
     // Only a plain :root selector - `:root .card` styles descendants and its
     // declarations are not ours to touch.
@@ -506,7 +513,15 @@ function stripRootVars(css) {
       .split(';')
       .filter((decl) => decl.trim() && !/^\s*--/.test(decl))
       .join(';');
-    return kept.trim() ? `${lead}${selector}{${kept};}` : lead;
+    // A block that held nothing but custom properties disappears entirely, so
+    // the preview ends up with one rule fewer than the live page had. Counted,
+    // because otherwise that gap is indistinguishable from a rule this
+    // pipeline destroyed by accident.
+    if (!kept.trim()) {
+      if (stats) stats.dropped++;
+      return lead;
+    }
+    return `${lead}${selector}{${kept};}`;
   });
 }
 

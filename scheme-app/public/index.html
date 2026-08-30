@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v45</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v46</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1739,20 +1739,37 @@
       var ourStyles = doc.querySelectorAll('style.scheme-app-css');
       var survived = 0;
       Array.prototype.forEach.call(ourStyles, function (el) { survived += el.textContent.length; });
-      lines.push('  css that survived into the preview: ' + survived + ' of ' + state.css.length + ' bytes');
+      var sent = 0;
+      (state.cssList || []).forEach(function (part) { sent += part.length; });
+      lines.push('  css that survived into the preview: ' + survived + ' of ' + (sent || state.css.length) + ' bytes');
 
       // Per sheet, because that is the resolution the fault has. A sheet the
       // capture read fine that yields no rules here was broken between the
       // two - by this app, not by the site.
-      var main = null;
-      var best = -1;
+      var sheetsHere = [];
       Array.prototype.forEach.call(ourStyles, function (el, i) {
         var count = -1;
         try { count = el.sheet ? el.sheet.cssRules.length : -1; } catch (err) {}
-        if (count > best) { best = count; main = el.sheet; }
-        var said = state.sheetReport[i] ? state.sheetReport[i].rules : '?';
-        lines.push('    sheet ' + (i + 1) + '  ' + el.textContent.length + 'b  rules=' +
-          (count < 0 ? 'unreadable' : count) + '  (capture read ' + said + ')');
+        if (el.sheet) sheetsHere.push(el.sheet);
+        var at = parseInt(el.getAttribute('data-sheet'), 10);
+        if (isNaN(at)) at = i;
+        var report = state.sheetReport[at] || {};
+        var said = typeof report.rules === 'number' ? report.rules : null;
+        // :root blocks are removed on purpose - the editor owns those
+        // variables - and a media-restricted sheet is wrapped in a single
+        // @media rule that becomes its only top-level rule. Both make the
+        // preview's count differ from the live page's by design, so the
+        // arithmetic is spelled out: what is left over is real loss.
+        var dropped = report.rootsDropped || 0;
+        var restricted = report.media && report.media.toLowerCase() !== 'all';
+        var expected = said === null ? null : (restricted ? 1 : said - dropped);
+        var note = said === null ? '' :
+          '  (live page ' + said +
+          (restricted ? ' wrapped in @media ' + report.media : '') +
+          (dropped ? ' less ' + dropped + ' :root' : '') +
+          (expected === count ? ' = as expected)' : ', expected ' + expected + ' HERE IS THE LOSS)');
+        lines.push('    sheet ' + (at + 1) + '  ' + el.textContent.length + 'b  rules=' +
+          (count < 0 ? 'unreadable' : count) + note);
         // Only for the ones that died: the shape that killed them.
         if (count === 0 && el.textContent.length > 0) {
           lines.push('      ' + cssShape(el.textContent));
@@ -1779,9 +1796,13 @@
           else if (rule.cssRules) walk(rule.cssRules);
         });
       };
-      if (main) {
-        try { walk(main.cssRules); } catch (err) {}
-      }
+      // Every sheet, not just the biggest one. Sampling a single sheet asked
+      // the question of whichever chunk happened to have the most rules, and
+      // a site's global CSS - the part that styles body - is usually its
+      // smallest file.
+      sheetsHere.forEach(function (sheet) {
+        try { walk(sheet.cssRules); } catch (err) {}
+      });
       lines.push('  selectors parsed: ' + selectors.length);
       var step = Math.max(1, Math.floor(selectors.length / 40));
       var tried = 0;
@@ -1836,7 +1857,10 @@
         // Inside <style> the HTML parser stops at the first "</style",
         // wherever it falls. In CSS that sequence only ever occurs inside a
         // string or a comment, where \/ means /, so escaping it is a no-op.
-        return '<style class="scheme-app-css" id="scheme-app-css-' + i + '">' +
+        // data-sheet carries the index in the capture, because a sheet that
+        // contributed nothing gets no element and everything after it would
+        // otherwise be compared against the wrong sheet's numbers.
+        return '<style class="scheme-app-css" data-sheet="' + i + '" id="scheme-app-css-' + i + '">' +
           part.replace(/<\/(style)/gi, '<\\/$1') + '</style>';
       })
       .join('');
