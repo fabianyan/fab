@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v43</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v44</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1728,11 +1728,84 @@
         if (cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.padding === '0px' && cs.display !== 'none') plain++;
       });
       lines.push('  unstyled-looking boxes: ' + plain + ' of ' + total);
+      lines.push('  body tag: <body' + attrsOf(body) + '>');
+
+      // Rule counts inside the preview, not in the capture. The capture can
+      // hand over a perfect 800KB of CSS and the preview still parse none of
+      // it, and the two look identical from outside.
       lines.push('  stylesheets inside preview: ' + doc.styleSheets.length);
+      var styleEl = doc.getElementById('scheme-app-css');
+      lines.push('  css that survived into the preview: ' +
+        (styleEl ? styleEl.textContent.length : 0) + ' of ' + state.css.length + ' bytes');
+      var main = null;
+      Array.prototype.forEach.call(doc.styleSheets, function (sheet) {
+        var id = (sheet.ownerNode && sheet.ownerNode.id) || sheet.href || '(inline)';
+        var count = -1;
+        try { count = sheet.cssRules.length; } catch (err) {}
+        if (id === 'scheme-app-css') main = sheet;
+        lines.push('    ' + id + '  rules=' + (count < 0 ? 'unreadable' : count));
+      });
+
+      // The decisive one. Selectors taken from the sheet the preview actually
+      // parsed, tried against the body the preview actually has: if they parse
+      // but match nothing, the CSS and the markup have come apart, and no
+      // amount of fixing the capture's plumbing will show anything.
+      var selectors = [];
+      var walk = function (rules) {
+        Array.prototype.forEach.call(rules, function (rule) {
+          if (rule.selectorText) selectors.push(rule.selectorText);
+          else if (rule.cssRules) walk(rule.cssRules);
+        });
+      };
+      if (main) {
+        try { walk(main.cssRules); } catch (err) {}
+      }
+      lines.push('  selectors parsed: ' + selectors.length);
+      var step = Math.max(1, Math.floor(selectors.length / 40));
+      var tried = 0;
+      var matched = 0;
+      var misses = [];
+      for (var i = 0; i < selectors.length && tried < 40; i += step) {
+        // Pseudo-classes and pseudo-elements match nothing on their own, so
+        // they are dropped: the question is whether the class exists at all.
+        var sel = selectors[i].replace(/::?[A-Za-z-]+(\([^)]*\))?/g, '').trim();
+        if (!sel || /^[,>+~]/.test(sel)) continue;
+        tried++;
+        try {
+          if (doc.querySelector(sel)) matched++;
+          else if (misses.length < 6) misses.push(selectors[i]);
+        } catch (err) {
+          tried--;
+        }
+      }
+      lines.push('  of ' + tried + ' sampled selectors, ' + matched + ' match something in the preview');
+      if (misses.length) lines.push('    misses: ' + misses.join(' | '));
+
+      // body came out in Times New Roman with no background once, which is
+      // what a page looks like when nothing styles it at all. These two say
+      // whether a rule for body exists and whether the family it names is a
+      // variable that resolved.
+      var bodyRules = selectors.filter(function (sel) { return /(^|[\s,>+~])body\b/.test(sel); });
+      lines.push('  rules naming body: ' + bodyRules.length +
+        (bodyRules.length ? '  e.g. ' + bodyRules.slice(0, 3).join(' | ') : ''));
+      var rootStyle = win.getComputedStyle(doc.documentElement);
+      var fontVars = Object.keys(state.current)
+        .filter(function (name) { return /font/i.test(name) && /family|base|title|body|heading/i.test(name); })
+        .slice(0, 4);
+      fontVars.forEach(function (name) {
+        lines.push('  ' + name + ' = ' + (rootStyle.getPropertyValue(name) || '(empty)'));
+      });
     }
 
     els.diagText.value = lines.join('\n');
     els.diagModal.classList.add('open');
+  }
+
+  function attrsOf(el) {
+    if (!el) return '';
+    return Array.prototype.map.call(el.attributes, function (attr) {
+      return ' ' + attr.name + '="' + attr.value + '"';
+    }).join('');
   }
 
   // A theme class, a data-theme or the class a font loader hangs its --font-*
@@ -1759,7 +1832,12 @@
       // Without this the iframe uses a desktop-sized layout viewport and
       // width-based media queries never fire at phone widths.
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-      '<style id="scheme-app-css">' + state.css + '</style>' +
+      // Inside <style> the HTML parser stops at the first "</style", wherever
+      // it falls - so one such sequence in a string or a comment in 800KB of
+      // bundled CSS silently truncates the whole sheet and the page renders
+      // with nothing applied. In CSS that sequence is only ever inside a
+      // string or a comment, where \/ means /, so escaping it is a no-op.
+      '<style id="scheme-app-css">' + state.css.replace(/<\/(style)/gi, '<\\/$1') + '</style>' +
       '<style id="scheme-app-vars">' + buildRootBlock(state.authored) + '</style>' +
       '</head>' + state.body + '</html>';
 
