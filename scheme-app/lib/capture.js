@@ -315,26 +315,43 @@ async function runCapture(payload) {
     // Where the rules are readable they are serialised straight from CSSOM,
     // which also picks up anything JavaScript added after load. A cross-origin
     // sheet throws on .cssRules and is left to be fetched by URL below.
-    const sheets = await page.evaluate(() =>
-      Array.from(document.styleSheets).map((sheet) => {
+    const sheets = await page.evaluate(() => {
+      const read = (sheet) => {
         const node = sheet.ownerNode;
         let text = '';
+        let rules = -1;
         if (node && node.tagName === 'STYLE') {
           text = node.textContent || '';
-        } else {
-          try {
-            if (sheet.cssRules) {
-              text = Array.from(sheet.cssRules)
-                .map((rule) => rule.cssText)
-                .join('\n');
-            }
-          } catch (err) {
-            // cross-origin: unreadable here, fetched below
-          }
         }
-        return { href: sheet.href || '', text: text };
-      })
-    );
+        try {
+          if (sheet.cssRules) {
+            rules = sheet.cssRules.length;
+            if (!text) text = Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n');
+          }
+        } catch (err) {
+          // cross-origin: unreadable here, fetched below
+        }
+        return {
+          href: sheet.href || '',
+          text: text,
+          // A sheet limited to print, or to a width the preview is not at,
+          // must stay limited. Concatenating it unconditionally applied a
+          // print skin - no backgrounds, no nav - over the whole page.
+          media: (sheet.media && sheet.media.mediaText) || '',
+          // Alternate themes ship as disabled sheets and stay in
+          // document.styleSheets. Taking them applied every theme at once.
+          disabled: !!sheet.disabled,
+          kind: node ? (node.tagName || '').toLowerCase() : 'adopted',
+          rules: rules,
+        };
+      };
+
+      const all = Array.from(document.styleSheets).map(read);
+      // Constructed sheets are not in document.styleSheets at all, so a site
+      // that adopts them had that CSS missing with nothing reported.
+      Array.from(document.adoptedStyleSheets || []).forEach((sheet) => all.push(read(sheet)));
+      return all;
+    });
 
     const stylesheetUrls = sheets.map((sheet) => sheet.href);
 
@@ -348,6 +365,12 @@ async function runCapture(payload) {
     const fetched = await page.evaluate(async (list) => {
       const out = [];
       for (const sheet of list) {
+        // A disabled sheet is not styling the page; fetching it would only
+        // let a theme the site has switched off into the preview.
+        if (sheet.disabled) {
+          out.push('');
+          continue;
+        }
         // Already have the rules - no request needed at all.
         if (sheet.text) {
           out.push(sheet.text);
@@ -381,7 +404,7 @@ async function runCapture(payload) {
     const cssParts = await Promise.all(
       sheets.map(async (sheet, i) => {
         let text = fetched[i];
-        if (!text && sheet.href) {
+        if (!text && sheet.href && !sheet.disabled) {
           try {
             const res = await fetch(sheet.href, authHeader ? { headers: authHeader } : undefined);
             text = res.ok ? await res.text() : '';
@@ -389,13 +412,29 @@ async function runCapture(payload) {
             text = '';
           }
         }
+        if (!text) return '';
         // An inline <style> has no URL of its own; its relative urls resolve
         // against the page, which is what the preview's <base> already points at.
-        return text ? absolutizeUrls(stripRootBlocks(text), sheet.href || landedUrl.toString()) : '';
+        text = absolutizeUrls(stripRootVars(text), sheet.href || landedUrl.toString());
+        // The media attribute lives on the element, not in the file. Every
+        // sheet lands in one <style>, so the restriction has to be written
+        // back in or a print-only sheet paints the screen.
+        return wrapMedia(text, sheet.media);
       })
     );
 
-    const cssMissing = cssParts.filter((part) => !part).length;
+    // A disabled sheet is deliberately not contributing, so it is not a
+    // failure to report.
+    const cssMissing = cssParts.filter((part, i) => !part && !sheets[i].disabled).length;
+
+    const sheetReport = sheets.map((sheet, i) => ({
+      href: sheet.href,
+      kind: sheet.kind,
+      media: sheet.media,
+      disabled: sheet.disabled,
+      rules: sheet.rules,
+      bytes: cssParts[i].length,
+    }));
 
     return result(200, {
       root,
@@ -416,6 +455,9 @@ async function runCapture(payload) {
       // Reporting it turns a mystery into a message.
       cssCount: stylesheetUrls.length,
       cssMissing: cssMissing,
+      // What each sheet actually contributed, so a preview that still looks
+      // wrong can be diagnosed from the app instead of guessed at.
+      sheetReport,
       // Reported separately so the status line can say how much of the capture
       // is the scheme itself and how much is the page's own tokens.
       schemeCount: Object.keys(root).filter((name) => name.indexOf('--scheme-') === 0).length,
@@ -443,8 +485,32 @@ function normalizeUrl(raw) {
   return 'https://' + trimmed.replace(/^\/+/, '');
 }
 
-function stripRootBlocks(css) {
-  return css.replace(/:root\s*\{[^}]*\}/g, '');
+// The editor owns the page's custom properties, so the authored ones are
+// taken out and re-emitted from its own :root block. Only the custom
+// properties, though: throwing the whole block away also threw away things
+// like `:root { font-size: 62.5% }`, and every rem on the page then measured
+// against 16px instead of 10px - a page that captured perfectly and rendered
+// at the wrong size everywhere.
+function stripRootVars(css) {
+  return css.replace(/(^|[\s,{}])(:root\b[^{}]*)\{([^{}]*)\}/g, (whole, lead, selector, body) => {
+    // Only a plain :root selector - `:root .card` styles descendants and its
+    // declarations are not ours to touch.
+    if (!/^:root(\s*:[A-Za-z-]+(\([^)]*\))?)*\s*$/.test(selector)) return whole;
+    const kept = body
+      .split(';')
+      .filter((decl) => decl.trim() && !/^\s*--/.test(decl))
+      .join(';');
+    return kept.trim() ? `${lead}${selector}{${kept};}` : lead;
+  });
+}
+
+// A sheet's media restriction lives on the <link>/<style> element, not in the
+// file. Concatenating every sheet into one <style> drops it, so it is written
+// back as an @media wrapper.
+function wrapMedia(css, media) {
+  const query = String(media || '').trim();
+  if (!query || query.toLowerCase() === 'all') return css;
+  return `@media ${query} {\n${css}\n}`;
 }
 
 // A stylesheet's relative URLs resolve against the stylesheet, not the page.

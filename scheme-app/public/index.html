@@ -681,8 +681,8 @@
     justify-content: center;
     z-index: 10;
   }
-  #exportModal.open, #importModal.open { display: flex; }
-  #importModal {
+  #exportModal.open, #importModal.open, #diagModal.open { display: flex; }
+  #importModal, #diagModal {
     display: none;
     position: fixed;
     inset: 0;
@@ -691,7 +691,7 @@
     justify-content: center;
     z-index: 10;
   }
-  #importBox, #exportBox {
+  #importBox, #exportBox, #diagBox {
     background: var(--app-panel);
     border: 1px solid var(--app-border);
     border-radius: 8px;
@@ -699,8 +699,8 @@
     width: 520px;
     max-width: 90vw;
   }
-  #importBox h2, #exportBox h2 { margin: 0 0 10px; font-size: 14px; }
-  #importHint { font-size: 12px; color: var(--app-muted); margin-bottom: 8px; }
+  #importBox h2, #exportBox h2, #diagBox h2 { margin: 0 0 10px; font-size: 14px; }
+  #importHint, #diagHint { font-size: 12px; color: var(--app-muted); margin-bottom: 8px; }
   #importReport { font-size: 12px; margin-top: 8px; min-height: 16px; }
   #importReport.error { color: var(--app-danger); }
   #exportModes { display: flex; margin-bottom: 8px; }
@@ -710,7 +710,7 @@
     margin-bottom: 8px;
     min-height: 16px;
   }
-  #importText, #exportText {
+  #importText, #exportText, #diagText {
     width: 100%;
     height: 260px;
     background: var(--app-bg);
@@ -722,7 +722,7 @@
     padding: 10px;
     resize: vertical;
   }
-  #importActions, #exportActions {
+  #importActions, #exportActions, #diagActions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v42</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v43</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -775,6 +775,7 @@
       <div id="editorFooter">
         <button id="resetAllBtn" class="secondary">Reset all</button>
         <button id="importBtn" class="secondary" title="Paste a :root block to preview a scheme this page does not have yet">Import CSS…</button>
+        <button id="diagBtn" class="secondary" title="What each of the page's stylesheets contributed">Diagnose…</button>
         <button id="exportBtn">Export CSS…</button>
       </div>
     </div>
@@ -808,6 +809,21 @@
   </div>
 </div>
 
+<div id="diagModal">
+  <div id="diagBox">
+    <h2>Capture diagnosis</h2>
+    <div id="diagHint">
+      What the capture actually got, sheet by sheet. If the preview still looks
+      wrong, copy this and send it — it says which stylesheet came back empty.
+    </div>
+    <textarea id="diagText" spellcheck="false" readonly></textarea>
+    <div id="diagActions">
+      <button id="diagCloseBtn" class="secondary">Close</button>
+      <button id="diagCopyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
 <div id="exportModal">
   <div id="exportBox">
     <h2>Export CSS</h2>
@@ -831,6 +847,7 @@
     original: {},
     current: {},
     css: '',
+    sheetReport: [],
     body: '',
     htmlAttrs: {},
     base: '',
@@ -919,6 +936,11 @@
     resetAllBtn: document.getElementById('resetAllBtn'),
     exportBtn: document.getElementById('exportBtn'),
     importBtn: document.getElementById('importBtn'),
+    diagBtn: document.getElementById('diagBtn'),
+    diagModal: document.getElementById('diagModal'),
+    diagText: document.getElementById('diagText'),
+    diagCopyBtn: document.getElementById('diagCopyBtn'),
+    diagCloseBtn: document.getElementById('diagCloseBtn'),
     importModal: document.getElementById('importModal'),
     importText: document.getElementById('importText'),
     importReport: document.getElementById('importReport'),
@@ -986,6 +1008,12 @@
   els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
   els.exportBtn.addEventListener('click', openExport);
   els.importBtn.addEventListener('click', openImport);
+  els.diagBtn.addEventListener('click', openDiagnosis);
+  els.diagCloseBtn.addEventListener('click', function () { els.diagModal.classList.remove('open'); });
+  els.diagCopyBtn.addEventListener('click', function () {
+    els.diagText.select();
+    try { document.execCommand('copy'); } catch (err) {}
+  });
   els.importCloseBtn.addEventListener('click', closeImport);
   els.importApplyBtn.addEventListener('click', applyImport);
   els.exportCloseBtn.addEventListener('click', closeExport);
@@ -1194,6 +1222,7 @@
         }
       });
 
+      state.sheetReport = data.sheetReport || [];
       state.css = data.css || '';
       state.body = data.body || '';
       state.htmlAttrs = data.htmlAttrs || {};
@@ -1652,6 +1681,58 @@
         });
       })
       .join('\n');
+  }
+
+  // Two rounds of fixing this blind were two too many. The report says what
+  // each sheet contributed and what the rendered preview actually looks like,
+  // so a preview that is still wrong can be read rather than guessed at.
+  function openDiagnosis() {
+    var lines = [];
+    lines.push('page: ' + (state.pageUrl || '(nothing captured yet)'));
+    lines.push('device: ' + state.capturedDevice + ' · variables: ' + Object.keys(state.current).length +
+      ' · edits: ' + Object.keys(state.edits).length);
+    lines.push('<html> attributes: ' + (htmlAttrsText().trim() || '(none)'));
+    lines.push('css delivered to preview: ' + state.css.length + ' bytes');
+    lines.push('');
+
+    lines.push('stylesheets (' + state.sheetReport.length + '):');
+    state.sheetReport.forEach(function (sheet, i) {
+      var bits = [String(i + 1) + '.', sheet.kind];
+      if (sheet.media) bits.push('media=' + sheet.media);
+      if (sheet.disabled) bits.push('DISABLED');
+      bits.push(sheet.rules < 0 ? 'rules=unreadable' : 'rules=' + sheet.rules);
+      bits.push(sheet.bytes + 'b' + (sheet.bytes ? '' : '  <-- EMPTY'));
+      bits.push(sheet.href || '(inline)');
+      lines.push('  ' + bits.join('  '));
+    });
+
+    var doc = previewDoc();
+    lines.push('');
+    if (!doc) {
+      lines.push('preview: not readable');
+    } else {
+      var body = doc.body;
+      var win = doc.defaultView;
+      var bodyStyle = body ? win.getComputedStyle(body) : null;
+      lines.push('preview: ' + doc.querySelectorAll('*').length + ' elements');
+      lines.push('  body font: ' + (bodyStyle ? bodyStyle.fontFamily : '?'));
+      lines.push('  body background: ' + (bodyStyle ? bodyStyle.backgroundColor : '?'));
+      // An unstyled page is one where almost nothing matched a rule. Counting
+      // elements that ended up with no background and no padding separates
+      // "the CSS is missing" from "the CSS is there and the colours are off".
+      var plain = 0;
+      var total = 0;
+      Array.prototype.forEach.call(doc.querySelectorAll('div, section, header, nav, a, button'), function (el) {
+        total++;
+        var cs = win.getComputedStyle(el);
+        if (cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.padding === '0px' && cs.display !== 'none') plain++;
+      });
+      lines.push('  unstyled-looking boxes: ' + plain + ' of ' + total);
+      lines.push('  stylesheets inside preview: ' + doc.styleSheets.length);
+    }
+
+    els.diagText.value = lines.join('\n');
+    els.diagModal.classList.add('open');
   }
 
   // A theme class, a data-theme or the class a font loader hangs its --font-*
