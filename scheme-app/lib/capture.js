@@ -440,6 +440,12 @@ async function runCapture(payload) {
       root,
       authored,
       css: hoistImports(cssParts.join('\n\n')),
+      // The same CSS kept one sheet per entry. The preview gives each its own
+      // <style>, so a sheet this pipeline mangles can only cost its own rules
+      // instead of taking the other nine down with it - a single unbalanced
+      // comment in one bundle parsed the whole 800KB concatenation to zero
+      // rules and the page rendered with nothing applied at all.
+      cssList: cssParts,
       body,
       htmlAttrs,
       base: `${landedUrl.protocol}//${landedUrl.host}`,

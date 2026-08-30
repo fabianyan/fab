@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v44</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v45</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -847,6 +847,7 @@
     original: {},
     current: {},
     css: '',
+    cssList: [],
     sheetReport: [],
     body: '',
     htmlAttrs: {},
@@ -1223,6 +1224,7 @@
       });
 
       state.sheetReport = data.sheetReport || [];
+      state.cssList = data.cssList || [];
       state.css = data.css || '';
       state.body = data.body || '';
       state.htmlAttrs = data.htmlAttrs || {};
@@ -1734,16 +1736,36 @@
       // hand over a perfect 800KB of CSS and the preview still parse none of
       // it, and the two look identical from outside.
       lines.push('  stylesheets inside preview: ' + doc.styleSheets.length);
-      var styleEl = doc.getElementById('scheme-app-css');
-      lines.push('  css that survived into the preview: ' +
-        (styleEl ? styleEl.textContent.length : 0) + ' of ' + state.css.length + ' bytes');
+      var ourStyles = doc.querySelectorAll('style.scheme-app-css');
+      var survived = 0;
+      Array.prototype.forEach.call(ourStyles, function (el) { survived += el.textContent.length; });
+      lines.push('  css that survived into the preview: ' + survived + ' of ' + state.css.length + ' bytes');
+
+      // Per sheet, because that is the resolution the fault has. A sheet the
+      // capture read fine that yields no rules here was broken between the
+      // two - by this app, not by the site.
       var main = null;
+      var best = -1;
+      Array.prototype.forEach.call(ourStyles, function (el, i) {
+        var count = -1;
+        try { count = el.sheet ? el.sheet.cssRules.length : -1; } catch (err) {}
+        if (count > best) { best = count; main = el.sheet; }
+        var said = state.sheetReport[i] ? state.sheetReport[i].rules : '?';
+        lines.push('    sheet ' + (i + 1) + '  ' + el.textContent.length + 'b  rules=' +
+          (count < 0 ? 'unreadable' : count) + '  (capture read ' + said + ')');
+        // Only for the ones that died: the shape that killed them.
+        if (count === 0 && el.textContent.length > 0) {
+          lines.push('      ' + cssShape(el.textContent));
+          lines.push('      starts: ' + JSON.stringify(el.textContent.slice(0, 120)));
+        }
+      });
       Array.prototype.forEach.call(doc.styleSheets, function (sheet) {
-        var id = (sheet.ownerNode && sheet.ownerNode.id) || sheet.href || '(inline)';
+        var node = sheet.ownerNode;
+        if (node && node.className === 'scheme-app-css') return;
         var count = -1;
         try { count = sheet.cssRules.length; } catch (err) {}
-        if (id === 'scheme-app-css') main = sheet;
-        lines.push('    ' + id + '  rules=' + (count < 0 ? 'unreadable' : count));
+        lines.push('    ' + ((node && node.id) || sheet.href || '(inline)') +
+          '  rules=' + (count < 0 ? 'unreadable' : count));
       });
 
       // The decisive one. Selectors taken from the sheet the preview actually
@@ -1801,6 +1823,40 @@
     els.diagModal.classList.add('open');
   }
 
+  // One <style> per captured sheet, not one for all of them. CSS has no
+  // recovery from an unbalanced comment or an unclosed block: the parser
+  // swallows everything after it, so a single mangled sheet in a
+  // concatenation costs every rule that follows it. Kept separate, it costs
+  // only its own, and the rule counts say which sheet is at fault.
+  function cssStyleBlocks() {
+    var parts = state.cssList && state.cssList.length ? state.cssList : [state.css];
+    return parts
+      .map(function (part, i) {
+        if (!part) return '';
+        // Inside <style> the HTML parser stops at the first "</style",
+        // wherever it falls. In CSS that sequence only ever occurs inside a
+        // string or a comment, where \/ means /, so escaping it is a no-op.
+        return '<style class="scheme-app-css" id="scheme-app-css-' + i + '">' +
+          part.replace(/<\/(style)/gi, '<\\/$1') + '</style>';
+      })
+      .join('');
+  }
+
+  // What a stylesheet that produced no rules looks like from the outside. CSS
+  // fails silently, so these two counts are the difference between "the sheet
+  // is fine and nothing matched" and "the sheet was destroyed before it was
+  // parsed".
+  function cssShape(text) {
+    var depth = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') depth--;
+    }
+    return 'comments ' + (text.match(/\/\*/g) || []).length + ' open / ' +
+      (text.match(/\*\//g) || []).length + ' close, brace balance ' +
+      (depth > 0 ? '+' : '') + depth;
+  }
+
   function attrsOf(el) {
     if (!el) return '';
     return Array.prototype.map.call(el.attributes, function (attr) {
@@ -1832,12 +1888,7 @@
       // Without this the iframe uses a desktop-sized layout viewport and
       // width-based media queries never fire at phone widths.
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-      // Inside <style> the HTML parser stops at the first "</style", wherever
-      // it falls - so one such sequence in a string or a comment in 800KB of
-      // bundled CSS silently truncates the whole sheet and the page renders
-      // with nothing applied. In CSS that sequence is only ever inside a
-      // string or a comment, where \/ means /, so escaping it is a no-op.
-      '<style id="scheme-app-css">' + state.css.replace(/<\/(style)/gi, '<\\/$1') + '</style>' +
+      cssStyleBlocks() +
       '<style id="scheme-app-vars">' + buildRootBlock(state.authored) + '</style>' +
       '</head>' + state.body + '</html>';
 
