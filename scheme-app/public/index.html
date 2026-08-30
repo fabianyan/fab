@@ -733,7 +733,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v46</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v47</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -1690,6 +1690,10 @@
   // so a preview that is still wrong can be read rather than guessed at.
   function openDiagnosis() {
     var lines = [];
+    // First line, because a report read against the wrong build wastes a whole
+    // round trip: a deploy that had not landed yet looked exactly like a fix
+    // that had not worked.
+    lines.push('build: ' + document.getElementById('buildTag').textContent);
     lines.push('page: ' + (state.pageUrl || '(nothing captured yet)'));
     lines.push('device: ' + state.capturedDevice + ' · variables: ' + Object.keys(state.current).length +
       ' · edits: ' + Object.keys(state.edits).length);
