@@ -7,13 +7,40 @@
 #  - no existing distinction is collapsed: a role per referenced palette name,
 #    so two names that happen to share a colour today can still diverge later.
 #    The dedupe happens at the palette layer only, where a colour is a colour.
-import json, re, collections
+import json, re, collections, sys, os
 from collections import OrderedDict
 
-rows = json.load(open('../tokens.json'))['rows']
-raw = OrderedDict((r['name'], r['raw'].strip()) for r in rows)
-sect = {r['name']: r['section'] for r in rows}
-blockof = {r['name']: r.get('block') for r in rows}
+# Input is either a CSS file exported from the Scheme Editor ("All CSS" mode,
+# which keeps var() references) or the JSON capture. The CSS path is the one
+# that matters: it is what a person can produce in two clicks, and the layer a
+# token belongs to is decided by its name prefix, not by metadata a hand-made
+# file would not carry.
+BLOCK_PREFIX = ('--v-fg-', '--v-surface-', '--v-border-', '--v-icon-',
+                '--v-shadow-', '--v-filter-')
+
+src = sys.argv[1] if len(sys.argv) > 1 else '../tokens.json'
+if src.endswith('.json'):
+    rows = json.load(open(src))['rows']
+    raw = OrderedDict((r['name'], r['raw'].strip()) for r in rows)
+    sect = {r['name']: r['section'] for r in rows}
+    blockof = {r['name']: r.get('block') for r in rows}
+else:
+    text = open(src).read()
+    raw = OrderedDict()
+    for m in re.finditer(r'(--[A-Za-z0-9_-]+)\s*:\s*([^;]+);', text):
+        raw[m.group(1)] = m.group(2).strip()
+    def classify(n):
+        if n.startswith(BLOCK_PREFIX): return '3. BLOCKS'
+        if n.startswith('--v-type-'):  return '2. TYPOGRAPHY'
+        return '1. PALETTE'
+    sect = {n: classify(n) for n in raw}
+    # The CMS already knows which widget a row belongs to; nothing is gained by
+    # guessing it back out of the name.
+    blockof = {n: '' for n in raw}
+
+print('%s: %d tokens (%s)' % (os.path.basename(src), len(raw),
+      ', '.join('%s %d' % (k.split('. ')[1].lower(), v) for k, v in
+                sorted(collections.Counter(sect.values()).items()))))
 
 REF = re.compile(r'^var\(\s*(--[A-Za-z0-9_-]+)\s*\)$')
 
