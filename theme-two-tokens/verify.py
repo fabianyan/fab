@@ -14,7 +14,7 @@ def resolve(name, seen=None):
     seen.add(name)
     v = tokens.get(name)
     if v is None: return '<missing>'
-    m = re.fullmatch(r'var\((--[A-Za-z0-9_-]+)\)', v)
+    m = re.fullmatch(r'var\(\s*(--[A-Za-z0-9_-]+)\s*\)', v)
     return resolve(m.group(1), seen) if m else v
 
 def same(a, b):
@@ -44,7 +44,7 @@ roles = set(json.load(open('built.json'))['roles'])
 direct = []
 for name in today:
     v = tokens.get(name, '')
-    m = re.fullmatch(r'var\((--[A-Za-z0-9_-]+)\)', v)
+    m = re.fullmatch(r'var\(\s*(--[A-Za-z0-9_-]+)\s*\)', v)
     neutral = m and re.match(r'--v-neutral-\d+$', m.group(1))
     if m and m.group(1) in palette and name not in roles and not neutral:
         direct.append((name, m.group(1)))

@@ -12,7 +12,7 @@ def resolve(name, seen=None):
     if name in seen: return tokens.get(name, '')
     seen.add(name)
     v = tokens.get(name, '')
-    m = re.fullmatch(r'var\((--[A-Za-z0-9_-]+)\)', v.strip())
+    m = re.fullmatch(r'var\(\s*(--[A-Za-z0-9_-]+)\s*\)', v.strip())
     return resolve(m.group(1), seen) if m else v
 
 R = {n: resolve(n) for n in tokens}

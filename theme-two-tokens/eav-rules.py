@@ -14,7 +14,7 @@ fail, warn = [], []
 
 LITERAL_OK = {'brand', 'palette', 'scale', 'exception'}
 HEX = re.compile(r'#[0-9a-fA-F]{3,8}\b')
-VAR = re.compile(r'^var\((--[A-Za-z0-9_-]+)\)$')
+VAR = re.compile(r'^var\(\s*(--[A-Za-z0-9_-]+)\s*\)$')
 
 # 1 - a colour is written down once, and only in a row that is allowed to hold one
 for r in rows:
