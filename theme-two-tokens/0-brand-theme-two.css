@@ -1,0 +1,19 @@
+/* 0 - BRAND: the whole creative surface. Nothing else is per-brand. */
+/* Load FIRST, before 1-palette.css. 15 values decide the skin. */
+:root {
+  --v-brand-primary: #ffdf1b;
+  --v-brand-primary-hover: #ffe85c;
+  --v-brand-secondary: #188664;
+  --v-brand-secondary-hover: #2ab98c;
+  --v-brand-secondary-active: #2ed9a3;
+  --v-brand-tertiary: #ca22da;
+  --v-brand-tertiary-hover: #ef47ff;
+  --v-brand-tertiary-active: #f47dff;
+  --v-brand-subscribe: #f55800;
+  --v-brand-subscribe-hover: #d23e00;
+  --v-brand-subscribe-disabled: #ffb186;
+  --v-brand-danger: #bb0728;
+  --v-brand-star: #ffc42b;
+  --v-type-family-base: "Lato", sans-serif;
+  --v-type-family-titles: "Lato", sans-serif;
+}

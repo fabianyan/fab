@@ -1,0 +1,7 @@
+/* 5 - EXCEPTIONS: the tokens no role can own, and why. */
+/* Consumed as rgba(var(--x), a), so they must stay comma triples - a hex here is invalid CSS. Each one duplicates a palette colour and cannot be kept in step automatically: verify.py fails if they drift. Migrate the consumers to color-mix(in srgb, var(--role) N%, transparent) and delete this file. */
+:root {
+  --v-palette-language-selector-footer-rgb: 35, 32, 32;
+  --v-palette-language-selector-rgb: 6, 6, 6;
+  --v-palette-nav-list-rgb: 0, 0, 0;
+}

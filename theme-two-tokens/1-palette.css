@@ -1,0 +1,38 @@
+/* 1 - PALETTE: every colour in theme-two, each named exactly once. */
+/* A colour appears here or nowhere. 34 entries for what were 50 names. */
+:root {
+  --v-brand-primary: #ffdf1b;
+  --v-brand-primary-hover: #ffe85c;
+  --v-brand-secondary: #188664;
+  --v-brand-secondary-hover: #2ab98c;
+  --v-brand-secondary-active: #2ed9a3;
+  --v-brand-tertiary: #ca22da;
+  --v-brand-tertiary-hover: #ef47ff;
+  --v-brand-tertiary-active: #f47dff;
+  --v-neutral-600: #8e8e8e;
+  --v-accent-border-strong: #202022;
+  --v-accent-footer: #131313;
+  --v-neutral-975: #000000;
+  --v-accent-hover-dark: #222326;
+  --v-accent-hover-icon: #272727;
+  --v-accent-hover-primary: #131314;
+  --v-neutral-900: #060606;
+  --v-accent-search: #232020;
+  --v-brand-subscribe: #f55800;
+  --v-brand-subscribe-hover: #d23e00;
+  --v-brand-subscribe-disabled: #ffb186;
+  --v-neutral-000: #ffffff;
+  --v-neutral-075: #f9f9f9;
+  --v-neutral-150: #efecec;
+  --v-neutral-225: #ebebeb;
+  --v-neutral-300: #cfcfcf;
+  --v-neutral-375: #cbccd0;
+  --v-neutral-450: #bababa;
+  --v-neutral-525: #959595;
+  --v-neutral-675: #414141;
+  --v-neutral-750: #1b1e1f;
+  --v-neutral-825: #1c1c1c;
+  --v-brand-danger: #bb0728;
+  --v-star-empty: #e1e1e1;
+  --v-brand-star: #ffc42b;
+}
