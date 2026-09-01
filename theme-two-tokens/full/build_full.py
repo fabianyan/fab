@@ -32,6 +32,11 @@ else:
     def classify(n):
         if n.startswith(BLOCK_PREFIX): return '3. BLOCKS'
         if n.startswith('--v-type-'):  return '2. TYPOGRAPHY'
+        # Names outside the --v- namespace belong to the page or to a third
+        # party (Swiper ships its own --swiper-theme-color). They are not the
+        # theme's to restructure, and calling them palette would invent a
+        # decision nobody made.
+        if not n.startswith('--v-'):   return '0. PAGE'
         return '1. PALETTE'
     sect = {n: classify(n) for n in raw}
     # The CMS already knows which widget a row belongs to; nothing is gained by
@@ -53,6 +58,7 @@ def resolve(n, seen=None):
 
 R = {n: resolve(n) for n in raw}
 
+PAGE  = [n for n in raw if sect[n].startswith('0.')]
 PAL   = [n for n in raw if sect[n].startswith('1.')]
 TYPE  = [n for n in raw if sect[n].startswith('2.')]
 BLOCK = [n for n in raw if sect[n].startswith('3.')]
@@ -133,7 +139,8 @@ alias = OrderedDict((n, 'var(%s)' % role_of[n]) for n in PAL if n in role_of)
 for n in PAL:
     if n not in alias: alias[n] = raw[n]
 
-LAYERS = [('brand', OrderedDict((k, palette[k]) for k in BRAND)),
+LAYERS = [('page', OrderedDict((n, raw[n]) for n in PAGE)),
+          ('brand', OrderedDict((k, palette[k]) for k in BRAND)),
           ('palette', OrderedDict((k, v) for k, v in palette.items() if k not in BRAND)),
           ('role', roles), ('type', typ), ('block', blocks), ('alias', alias)]
 
@@ -157,7 +164,7 @@ open('theme-two-full.css', 'w').write('\n'.join(out) + '\n')
 
 json.dump({'today': R, 'palette': palette, 'roles': roles, 'blocks': list(blocks),
            'dead': dead, 'brand': BRAND}, open('full.built.json', 'w'), indent=1)
-print('rows %d | brand %d | palette %d | roles %d | type %d | blocks %d | alias %d'
-      % (len(eav), len(BRAND), len(palette) - len(BRAND), len(roles), len(typ), len(blocks), len(alias)))
+print('rows %d | page %d | brand %d | palette %d | roles %d | type %d | blocks %d | alias %d'
+      % (len(eav), len(PAGE), len(BRAND), len(palette) - len(BRAND), len(roles), len(typ), len(blocks), len(alias)))
 print('editable rows (brand + every block): %d' % sum(1 for r in eav if r['editable']))
 print('palette names nothing references: %d %s' % (len(dead), [d.replace('--v-palette-','') for d in dead]))
