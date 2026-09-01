@@ -1,0 +1,1699 @@
+{
+ "entity": "theme-two",
+ "rows": [
+  {
+   "attribute": "--v-brand-primary",
+   "value": "#ffdf1b",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-primary-hover",
+   "value": "#ffe85c",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-secondary",
+   "value": "#188664",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-secondary-hover",
+   "value": "#2ab98c",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-secondary-active",
+   "value": "#2ed9a3",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-tertiary",
+   "value": "#ca22da",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-tertiary-hover",
+   "value": "#ef47ff",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-tertiary-active",
+   "value": "#f47dff",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-neutral-600",
+   "value": "#8e8e8e",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-border-strong",
+   "value": "#202022",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-footer",
+   "value": "#131313",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-975",
+   "value": "#000000",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-hover-dark",
+   "value": "#222326",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-hover-icon",
+   "value": "#272727",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-hover-primary",
+   "value": "#131314",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-900",
+   "value": "#060606",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-accent-search",
+   "value": "#232020",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-brand-subscribe",
+   "value": "#f55800",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-subscribe-hover",
+   "value": "#d23e00",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-brand-subscribe-disabled",
+   "value": "#ffb186",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-neutral-000",
+   "value": "#ffffff",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-075",
+   "value": "#f9f9f9",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-150",
+   "value": "#efecec",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-225",
+   "value": "#ebebeb",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-300",
+   "value": "#cfcfcf",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-375",
+   "value": "#cbccd0",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-450",
+   "value": "#bababa",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-525",
+   "value": "#959595",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-675",
+   "value": "#414141",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-750",
+   "value": "#1b1e1f",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-neutral-825",
+   "value": "#1c1c1c",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-brand-danger",
+   "value": "#bb0728",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-star-empty",
+   "value": "#e1e1e1",
+   "layer": "palette",
+   "editable": false,
+   "note": "one name per colour; edit via the brand rows"
+  },
+  {
+   "attribute": "--v-brand-star",
+   "value": "#ffc42b",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-type-family-base",
+   "value": "\"Lato\", sans-serif",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-type-family-titles",
+   "value": "\"Lato\", sans-serif",
+   "layer": "brand",
+   "editable": true,
+   "note": "the brand chooses this"
+  },
+  {
+   "attribute": "--v-role-action-primary",
+   "value": "var(--v-brand-primary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-primary-hover",
+   "value": "var(--v-brand-primary-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-primary-active",
+   "value": "var(--v-brand-primary-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-on-action-primary",
+   "value": "var(--v-neutral-900)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-secondary",
+   "value": "var(--v-brand-secondary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-secondary-hover",
+   "value": "var(--v-brand-secondary-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-secondary-active",
+   "value": "var(--v-brand-secondary-active)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-tertiary",
+   "value": "var(--v-brand-tertiary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-tertiary-hover",
+   "value": "var(--v-brand-tertiary-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-tertiary-active",
+   "value": "var(--v-brand-tertiary-active)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-subscribe",
+   "value": "var(--v-brand-subscribe)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-subscribe-hover",
+   "value": "var(--v-brand-subscribe-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-action-subscribe-disabled",
+   "value": "var(--v-brand-subscribe-disabled)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-selected",
+   "value": "var(--v-brand-secondary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-selected-muted",
+   "value": "var(--v-brand-tertiary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-highlight",
+   "value": "var(--v-brand-tertiary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-link-visited",
+   "value": "var(--v-brand-secondary-hover)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-danger",
+   "value": "var(--v-brand-danger)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-disabled",
+   "value": "var(--v-neutral-600)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-header",
+   "value": "var(--v-neutral-975)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-footer",
+   "value": "var(--v-accent-footer)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-search",
+   "value": "var(--v-accent-search)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-hover-dark",
+   "value": "var(--v-accent-hover-dark)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-hover-icon",
+   "value": "var(--v-accent-hover-icon)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-hover-primary",
+   "value": "var(--v-accent-hover-primary)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-surface-inverse",
+   "value": "var(--v-neutral-900)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-border-strong",
+   "value": "var(--v-accent-border-strong)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-text-inverse",
+   "value": "var(--v-neutral-000)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-star-empty",
+   "value": "var(--v-star-empty)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-role-star-filled",
+   "value": "var(--v-brand-star)",
+   "layer": "role",
+   "editable": false,
+   "note": "what a colour means; repoint to re-skin"
+  },
+  {
+   "attribute": "--v-type-size-2xs",
+   "value": "10px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-xs",
+   "value": "12px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-s",
+   "value": "14px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-m",
+   "value": "16px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-m-plus",
+   "value": "17px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-l",
+   "value": "18px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-xl",
+   "value": "20px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-2xl",
+   "value": "22px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-3xl",
+   "value": "24px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-4xl",
+   "value": "30px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-5xl",
+   "value": "40px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-size-6xl",
+   "value": "45px",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-120",
+   "value": "120%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-125",
+   "value": "125%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-130",
+   "value": "130%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-133",
+   "value": "133%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-135",
+   "value": "135%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-136",
+   "value": "136%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-137",
+   "value": "137%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-138",
+   "value": "138.5%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-140",
+   "value": "140%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-147",
+   "value": "147%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-150",
+   "value": "150%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-176",
+   "value": "176%",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-type-leading-normal",
+   "value": "normal",
+   "layer": "scale",
+   "editable": false,
+   "note": "shared type scale"
+  },
+  {
+   "attribute": "--v-palette-brand-primary-default",
+   "value": "var(--v-role-action-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-primary-hover",
+   "value": "var(--v-role-action-primary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-primary-active",
+   "value": "var(--v-role-action-primary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-secondary-default",
+   "value": "var(--v-role-action-secondary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-secondary-hover",
+   "value": "var(--v-role-action-secondary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-secondary-active",
+   "value": "var(--v-role-action-secondary-active)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-tertiary-default",
+   "value": "var(--v-role-action-tertiary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-tertiary-hover",
+   "value": "var(--v-role-action-tertiary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-brand-tertiary-active",
+   "value": "var(--v-role-action-tertiary-active)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-disabled",
+   "value": "var(--v-role-disabled)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-border-strong",
+   "value": "var(--v-role-border-strong)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-cta-tertiary-default",
+   "value": "var(--v-role-action-tertiary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-cta-tertiary-hover",
+   "value": "var(--v-role-action-tertiary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-footer",
+   "value": "var(--v-role-surface-footer)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-header",
+   "value": "var(--v-role-surface-header)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-highlight",
+   "value": "var(--v-role-action-tertiary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-hover-dark",
+   "value": "var(--v-role-surface-hover-dark)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-hover-icon",
+   "value": "var(--v-role-surface-hover-icon)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-hover-primary",
+   "value": "var(--v-role-surface-hover-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-inverse",
+   "value": "var(--v-role-on-action-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-link-visited",
+   "value": "var(--v-role-action-secondary-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-on-action-primary",
+   "value": "var(--v-role-on-action-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-on-action-primary-outline",
+   "value": "var(--v-role-on-action-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-search",
+   "value": "var(--v-role-surface-search)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-selected",
+   "value": "var(--v-role-action-secondary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-selected-muted",
+   "value": "var(--v-role-action-tertiary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-subscribe-default",
+   "value": "var(--v-role-action-subscribe)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-subscribe-hover",
+   "value": "var(--v-role-action-subscribe-hover)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-subscribe-disabled",
+   "value": "var(--v-role-action-subscribe-disabled)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-accent-text-inverse",
+   "value": "var(--v-role-text-inverse)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-000",
+   "value": "var(--v-role-text-inverse)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-075",
+   "value": "var(--v-neutral-075)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-150",
+   "value": "var(--v-neutral-150)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-225",
+   "value": "var(--v-neutral-225)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-300",
+   "value": "var(--v-neutral-300)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-375",
+   "value": "var(--v-neutral-375)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-450",
+   "value": "var(--v-neutral-450)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-525",
+   "value": "var(--v-neutral-525)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-600",
+   "value": "var(--v-role-disabled)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-675",
+   "value": "var(--v-neutral-675)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-750",
+   "value": "var(--v-neutral-750)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-825",
+   "value": "var(--v-neutral-825)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-900",
+   "value": "var(--v-role-on-action-primary)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-neutral-975",
+   "value": "var(--v-role-surface-header)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-danger-default",
+   "value": "var(--v-role-danger)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-star-empty",
+   "value": "var(--v-role-star-empty)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-star-filled",
+   "value": "var(--v-role-star-filled)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-filter-nav-icon-default",
+   "value": "brightness(0)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-filter-nav-icon-active",
+   "value": "brightness(0)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-weight-bold",
+   "value": "700",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-weight-regular",
+   "value": "400",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-weight-titles",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-mobile-font-size",
+   "value": "var(--v-type-size-4xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-mobile-line-height",
+   "value": "var(--v-type-leading-120)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-desktop-font-size",
+   "value": "var(--v-type-size-6xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-desktop-line-height",
+   "value": "var(--v-type-leading-137)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h1-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-mobile-font-size",
+   "value": "var(--v-type-size-3xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-mobile-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-desktop-font-size",
+   "value": "var(--v-type-size-5xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-desktop-line-height",
+   "value": "var(--v-type-leading-130)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h2-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-mobile-font-size",
+   "value": "var(--v-type-size-2xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-mobile-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-desktop-font-size",
+   "value": "var(--v-type-size-4xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-desktop-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h3-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-mobile-font-size",
+   "value": "var(--v-type-size-xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-mobile-line-height",
+   "value": "var(--v-type-leading-133)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-desktop-font-size",
+   "value": "var(--v-type-size-2xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-desktop-line-height",
+   "value": "var(--v-type-leading-133)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h4-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h5-desktop-font-size",
+   "value": "var(--v-type-size-xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h5-desktop-line-height",
+   "value": "var(--v-type-leading-125)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h5-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-mobile-font-size",
+   "value": "var(--v-type-size-xs)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-mobile-line-height",
+   "value": "var(--v-type-leading-125)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-desktop-font-size",
+   "value": "var(--v-type-size-m-plus)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-desktop-line-height",
+   "value": "var(--v-type-leading-137)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-h6-desktop-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-mobile-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-mobile-line-height",
+   "value": "var(--v-type-leading-138)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-mobile-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-desktop-font-size",
+   "value": "var(--v-type-size-l)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-desktop-line-height",
+   "value": "var(--v-type-leading-150)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-desktop-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-strong-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-strong-line-height",
+   "value": "var(--v-type-leading-147)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-body-strong-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-mobile-font-size",
+   "value": "var(--v-type-size-2xs)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-mobile-line-height",
+   "value": "var(--v-type-leading-130)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-mobile-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-desktop-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-desktop-line-height",
+   "value": "var(--v-type-leading-136)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-desktop-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-strong-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-strong-line-height",
+   "value": "var(--v-type-leading-136)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-strong-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-notice-font-size",
+   "value": "var(--v-type-size-m-plus)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-notice-line-height",
+   "value": "var(--v-type-leading-136)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-notice-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-font-size",
+   "value": "var(--v-type-size-s)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-line-height",
+   "value": "var(--v-type-leading-147)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-strong-font-size",
+   "value": "var(--v-type-size-s)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-strong-line-height",
+   "value": "var(--v-type-leading-147)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-caption-strong-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-mobile-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-mobile-line-height",
+   "value": "var(--v-type-leading-176)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-desktop-font-size",
+   "value": "var(--v-type-size-l)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-desktop-line-height",
+   "value": "var(--v-type-leading-140)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-normal-link-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-mobile-font-size",
+   "value": "var(--v-type-size-xs)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-mobile-line-height",
+   "value": "var(--v-type-leading-137)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-desktop-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-desktop-line-height",
+   "value": "var(--v-type-leading-140)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-small-link-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-link-list-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-link-list-line-height",
+   "value": "var(--v-type-leading-176)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-link-list-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-mobile-font-size",
+   "value": "var(--v-type-size-l)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-mobile-line-height",
+   "value": "var(--v-type-leading-normal)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-desktop-font-size",
+   "value": "var(--v-type-size-xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-desktop-line-height",
+   "value": "var(--v-type-leading-140)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-big-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-mobile-font-size",
+   "value": "var(--v-type-size-xl)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-mobile-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-desktop-font-size",
+   "value": "var(--v-type-size-m-plus)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-desktop-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-button-normal-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-mobile-font-size",
+   "value": "var(--v-type-size-m)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-mobile-line-height",
+   "value": "var(--v-type-leading-135)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-mobile-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-desktop-font-size",
+   "value": "var(--v-type-size-l)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-desktop-line-height",
+   "value": "var(--v-type-leading-140)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-action-label-desktop-font-weight",
+   "value": "var(--v-type-weight-bold)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-left-navigation-mobile-font-size",
+   "value": "var(--v-type-size-s)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-left-navigation-mobile-line-height",
+   "value": "var(--v-type-leading-120)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-type-left-navigation-mobile-font-weight",
+   "value": "var(--v-type-weight-regular)",
+   "layer": "alias",
+   "editable": false,
+   "note": "name theme-two ships today; delete when unread"
+  },
+  {
+   "attribute": "--v-palette-language-selector-footer-rgb",
+   "value": "35, 32, 32",
+   "layer": "exception",
+   "editable": false,
+   "note": "rgba(var()) consumer - must stay a triple"
+  },
+  {
+   "attribute": "--v-palette-language-selector-rgb",
+   "value": "6, 6, 6",
+   "layer": "exception",
+   "editable": false,
+   "note": "rgba(var()) consumer - must stay a triple"
+  },
+  {
+   "attribute": "--v-palette-nav-list-rgb",
+   "value": "0, 0, 0",
+   "layer": "exception",
+   "editable": false,
+   "note": "rgba(var()) consumer - must stay a triple"
+  }
+ ]
+}

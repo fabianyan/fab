@@ -55,16 +55,44 @@ Tertiary misses AA by 0.081. The nearest colour that clears 4.5:1 is `#c820d9`
 — ΔE 0.61 from today's `#ca22da`, below the threshold at which anyone can see
 a difference. Searched, not guessed: `brand.py` reports it.
 
-## Load order
+## Shape: one `:root`, generated from EAV rows
+
+The scheme stays a single `:root` block, exactly as today. There is no load
+order and no build step, because there are no files — `layer` is a column on
+the row:
 
 ```
-0-brand-theme-two.css   15 values — the only per-brand file
-1-palette.css           34 colours, each named once
-2-roles.css             30 roles: what a colour means
-3-type.css              12 sizes + 13 line heights
-4-aliases.css           150 names theme-two ships today, repointed
-5-exceptions.css        3 rgb triples — delete once consumers use color-mix()
+entity     attribute                     value                    layer      editable
+theme-two  --v-brand-tertiary            #ca22da                  brand      true
+theme-two  --v-role-action-tertiary      var(--v-brand-tertiary)  role       false
+theme-two  --v-palette-accent-highlight  var(--v-role-highlight)  alias      false
+theme-two  --v-palette-nav-list-rgb      0, 0, 0                  exception  false
 ```
+
+242 rows: 15 brand, 21 palette, 30 role, 25 scale, 148 alias, 3 exception.
+A designer is shown the 15 marked `editable`.
+
+**Row order does not matter.** Custom properties resolve at computed-value
+time, so a `var()` pointing at a name declared further down resolves exactly
+like one pointing up. `eav-test.js` shuffles all 242 rows 25 ways in Chrome and
+checks every one of the 153 names still computes to the value the live site
+serves. That is the property an EAV representation needs, and it holds.
 
 Every stylesheet keeps reading the names it reads today. Nothing has to be
 migrated for this to ship.
+
+## Enforcement moves to save time
+
+This is what EAV costs. A file layout enforces the layering by load order; a
+flat table enforces nothing. So each rule above becomes a check that runs when
+a row is saved — `eav-rules.py` reads the rows and nothing else, so it ports to
+whatever the CMS saves with.
+
+It catches all seven ways a row can break the system, and `eav-rules-test.py`
+breaks the rows on purpose to prove it: a hex typed into a role row, a colour
+given a second palette name, a component reading the palette instead of a role,
+a role pointing at a name nothing defines, an `rgb` exception turned into a hex
+or drifted off its colour, and a cycle between two roles.
+
+The ΔE rule is a warning, not a failure: it asks for a sentence saying the two
+colours are meant to differ.
