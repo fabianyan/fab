@@ -1,0 +1,24 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@sparticuz/chromium", "puppeteer-core", "puppeteer"]
+  included_files = ["node_modules/@sparticuz/chromium/bin/**"]
+
+[functions.capture]
+  timeout = 30
+
+# The frontend posts to /api/capture, which is where Vercel serves its
+# functions from. Mapping it here means one path works on both platforms
+# rather than the page having to know which one it is running on.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

@@ -1,0 +1,29 @@
+/* 3 - TYPE SCALE: the sizes and line heights the styles are built from. */
+/* 12 sizes and 13 line heights across 26 styles - see MERGE-CANDIDATES.md. */
+:root {
+  --v-type-size-2xs: 10px;
+  --v-type-size-xs: 12px;
+  --v-type-size-s: 14px;
+  --v-type-size-m: 16px;
+  --v-type-size-m-plus: 17px;
+  --v-type-size-l: 18px;
+  --v-type-size-xl: 20px;
+  --v-type-size-2xl: 22px;
+  --v-type-size-3xl: 24px;
+  --v-type-size-4xl: 30px;
+  --v-type-size-5xl: 40px;
+  --v-type-size-6xl: 45px;
+  --v-type-leading-120: 120%;
+  --v-type-leading-125: 125%;
+  --v-type-leading-130: 130%;
+  --v-type-leading-133: 133%;
+  --v-type-leading-135: 135%;
+  --v-type-leading-136: 136%;
+  --v-type-leading-137: 137%;
+  --v-type-leading-138: 138.5%;
+  --v-type-leading-140: 140%;
+  --v-type-leading-147: 147%;
+  --v-type-leading-150: 150%;
+  --v-type-leading-176: 176%;
+  --v-type-leading-normal: normal;
+}

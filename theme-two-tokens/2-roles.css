@@ -1,0 +1,34 @@
+/* 2 - ROLES: what a colour means. Components read these, never the palette. */
+/* Repointing a role re-skins everything that uses it, in one edit. */
+:root {
+  --v-role-action-primary: var(--v-brand-primary);
+  --v-role-action-primary-hover: var(--v-brand-primary-hover);
+  --v-role-action-primary-active: var(--v-brand-primary-hover);
+  --v-role-on-action-primary: var(--v-neutral-900);
+  --v-role-action-secondary: var(--v-brand-secondary);
+  --v-role-action-secondary-hover: var(--v-brand-secondary-hover);
+  --v-role-action-secondary-active: var(--v-brand-secondary-active);
+  --v-role-action-tertiary: var(--v-brand-tertiary);
+  --v-role-action-tertiary-hover: var(--v-brand-tertiary-hover);
+  --v-role-action-tertiary-active: var(--v-brand-tertiary-active);
+  --v-role-action-subscribe: var(--v-brand-subscribe);
+  --v-role-action-subscribe-hover: var(--v-brand-subscribe-hover);
+  --v-role-action-subscribe-disabled: var(--v-brand-subscribe-disabled);
+  --v-role-selected: var(--v-brand-secondary);
+  --v-role-selected-muted: var(--v-brand-tertiary);
+  --v-role-highlight: var(--v-brand-tertiary);
+  --v-role-link-visited: var(--v-brand-secondary-hover);
+  --v-role-danger: var(--v-brand-danger);
+  --v-role-disabled: var(--v-neutral-600);
+  --v-role-surface-header: var(--v-neutral-975);
+  --v-role-surface-footer: var(--v-accent-footer);
+  --v-role-surface-search: var(--v-accent-search);
+  --v-role-surface-hover-dark: var(--v-accent-hover-dark);
+  --v-role-surface-hover-icon: var(--v-accent-hover-icon);
+  --v-role-surface-hover-primary: var(--v-accent-hover-primary);
+  --v-role-surface-inverse: var(--v-neutral-900);
+  --v-role-border-strong: var(--v-accent-border-strong);
+  --v-role-text-inverse: var(--v-neutral-000);
+  --v-role-star-empty: var(--v-star-empty);
+  --v-role-star-filled: var(--v-brand-star);
+}

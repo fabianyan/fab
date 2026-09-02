@@ -1,0 +1,25 @@
+/* 0 - BRAND template for a NEW brand.
+
+   Fill in the four default colours. Hover and active are derived, so a
+   brand can ship with four decisions instead of thirteen. Any derived
+   step can be overridden by writing it out - the derivation is a
+   starting point, not a rule. theme-two overrides all of them, because
+   its steps were chosen by eye. */
+:root {
+  --v-brand-primary: #000000;            /* CHOOSE */
+  --v-brand-primary-hover: color-mix(in srgb, var(--v-brand-primary) 82%, white);
+  --v-brand-primary-active: color-mix(in srgb, var(--v-brand-primary) 70%, white);
+  --v-brand-secondary: #000000;            /* CHOOSE */
+  --v-brand-secondary-hover: color-mix(in srgb, var(--v-brand-secondary) 82%, white);
+  --v-brand-secondary-active: color-mix(in srgb, var(--v-brand-secondary) 70%, white);
+  --v-brand-tertiary: #000000;            /* CHOOSE */
+  --v-brand-tertiary-hover: color-mix(in srgb, var(--v-brand-tertiary) 82%, white);
+  --v-brand-tertiary-active: color-mix(in srgb, var(--v-brand-tertiary) 70%, white);
+  --v-brand-subscribe: #000000;            /* CHOOSE */
+  --v-brand-subscribe-hover: color-mix(in srgb, var(--v-brand-subscribe) 82%, white);
+  --v-brand-subscribe-active: color-mix(in srgb, var(--v-brand-subscribe) 70%, white);
+  --v-brand-danger: #bb0728;         /* shared unless the brand says otherwise */
+  --v-brand-star: #ffc42b;
+  --v-type-family-base: "Lato", sans-serif;   /* CHOOSE */
+  --v-type-family-titles: "Lato", sans-serif; /* CHOOSE */
+}

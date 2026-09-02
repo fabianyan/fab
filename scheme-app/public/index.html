@@ -1,0 +1,4621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Vulcan Scheme Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --app-bg: #16181d;
+    --app-panel: #1e2129;
+    --app-border: #2c303a;
+    --app-text: #e6e8ec;
+    --app-muted: #8b90a0;
+    --app-accent: #5b8cff;
+    --app-danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--app-bg);
+    color: var(--app-text);
+    font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--app-panel);
+    border-bottom: 1px solid var(--app-border);
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 15px;
+    margin: 0 12px 0 0;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  #buildTag {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--app-muted);
+    border: 1px solid var(--app-border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    vertical-align: middle;
+  }
+  header input[type="text"],
+  header input[type="password"] {
+    background: var(--app-bg);
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  #urlInput { flex: 1 1 320px; min-width: 200px; }
+  .authField { width: 130px; }
+  button {
+    background: var(--app-accent);
+    border: none;
+    color: #fff;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.icon {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-muted);
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  /* Its own fixed-height row, deliberately not inside the header. While it
+     lived in that wrapping flex header, any status change could add or remove
+     a header row and move the preview by ~25px. Hovering a link changes the
+     status, so the page shifted under the cursor between hover and click and
+     the click landed on whatever had moved into that spot. */
+  #status {
+    flex: 0 0 auto;
+    height: 28px;
+    line-height: 28px;
+    padding: 0 14px;
+    background: var(--app-panel);
+    border-bottom: 1px solid var(--app-border);
+    font-size: 12px;
+    color: var(--app-muted);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  #statusText { overflow: hidden; text-overflow: ellipsis; }
+  #status.error { color: var(--app-danger); }
+  /* The offer to carry a colour change across the tokens that shared it. It
+     lives in the status bar, which already has its own fixed-height row, so
+     showing it cannot reflow the preview under the pointer. */
+  #cascadeBtn {
+    flex: 0 0 auto;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--app-accent);
+    background: var(--app-accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  #cascadeBtn.hidden { display: none; }
+  #loginFields { display: none; gap: 8px; align-items: center; }
+  #loginFields.open { display: flex; }
+
+  #body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  #editorPanel {
+    width: 430px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--app-panel);
+    border-right: 1px solid var(--app-border);
+    min-height: 0;
+  }
+  #editorToolbar {
+    padding: 10px;
+    border-bottom: 1px solid var(--panel-line);
+    display: flex;
+    gap: 8px;
+  }
+  #filterInput {
+    flex: 1;
+    background: var(--app-bg);
+    border: 1px solid var(--app-border);
+    color: var(--app-text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  #groups {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0 12px;
+  }
+  .group {
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--panel-dim);
+    font-weight: 600;
+  }
+  .group-header .group-label { flex: 1 1 auto; }
+  .group-count { color: var(--panel-dim); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  /* A collapsed group looked the same as an empty one, and nothing showed the
+     header was clickable. A rotating caret states both. */
+  .group-header::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    border-left: 4.5px solid currentColor;
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transform: rotate(90deg);
+    transition: transform 0.12s;
+  }
+  .group.collapsed .group-header::before { transform: rotate(0deg); }
+  .group-header:hover { color: var(--panel-fg); }
+  .group-rows { padding: 0 12px 8px; }
+  .group.collapsed .group-rows { display: none; }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+  }
+  .row-main { flex: 1 1 auto; min-width: 0; }
+  /* A swatch has to stay legible whatever it holds: #060606 on a dark panel,
+     #FFFFFF on a light one, and semi-transparent values in between. The
+     checkerboard shows through anything translucent, and the two-tone ring
+     (light inside, dark outside) keeps an edge against both extremes. The
+     colour itself goes on an inner .fill so it never overwrites the
+     checkerboard. */
+  .swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,0.18) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 75%),
+      linear-gradient(45deg, rgba(0,0,0,0.18) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.18) 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 4px 4px;
+    /* Both rings sit outside the swatch. An inset light ring reads as a white
+       halo painted over the colour, which misrepresents it. Stacked outside,
+       the dark ring defines the edge of a pale value on a light backdrop and
+       the faint light ring does the same for a dark value on a dark one, while
+       the colour itself stays untouched. */
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.4),
+      0 0 0 2px rgba(255, 255, 255, 0.13);
+  }
+  .swatch .fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  /* A family has no colour to show, so the same reserved square shows the face
+     itself. Rows stay aligned whether they hold a colour, a font or a number. */
+  .swatch.font {
+    background: none;
+    box-shadow: 0 0 0 1px var(--panel-line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+  }
+  .swatch.font .font-chip {
+    font-size: 15px;
+    line-height: 1;
+    color: var(--panel-fg);
+  }
+  .row .swatch input[type="color"] {
+    position: absolute;
+    inset: -4px;
+    border: none;
+    padding: 0;
+    width: 42px;
+    height: 42px;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .row .swatch { cursor: pointer; }
+  /* Two lines: the distinguishing segment in full, then the complete variable
+     name underneath. Nothing is truncated away, so names that differ only in
+     their last segment cannot read as duplicates. */
+  .row .name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--panel-fg);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .row .value {
+    width: 104px;
+    flex-shrink: 0;
+    background: var(--app-bg);
+    border: 1px solid var(--panel-line);
+    color: var(--panel-fg);
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 11.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .row .value.changed { border-color: var(--app-accent); }
+  .row .reset {
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    color: var(--panel-dim);
+    padding: 2px 4px;
+    font-size: 13px;
+    visibility: hidden;
+  }
+  .row .reset.visible { visibility: visible; }
+  .row .reset:hover { color: var(--panel-fg); }
+
+  #editorFooter {
+    padding: 10px;
+    border-top: 1px solid var(--panel-line);
+    display: flex;
+    gap: 8px;
+  }
+  #editorFooter button { flex: 1; }
+
+  #deviceToggle { display: flex; }
+  button.seg {
+    background: transparent;
+    border: 1px solid var(--app-border);
+    color: var(--app-muted);
+    border-radius: 0;
+    padding: 7px 12px;
+  }
+  button.seg:first-child { border-radius: 6px 0 0 6px; }
+  button.seg:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+  button.seg.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
+
+  #previewWrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  #preview {
+    flex: 1;
+    border: none;
+    width: 100%;
+    height: 100%;
+    background: #fff;
+  }
+  /* Narrowing the frame is what makes the page's own media queries fire, so
+     the mobile view is the real responsive layout rather than a scaled
+     screenshot of the desktop one. */
+  #previewWrap.mobile {
+    align-items: center;
+    justify-content: flex-start;
+    background: #0b0d11;
+    padding: 18px 0;
+    overflow: auto;
+  }
+  #previewWrap.mobile #preview {
+    flex: none;
+    width: 390px;
+    height: 844px;
+    max-height: none;
+    border-radius: 20px;
+    box-shadow: 0 0 0 6px #23262e, 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  #placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--app-muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px;
+  }
+
+  /* The editor panel doubles as the scheme's spec sheet, so it carries its own
+     backdrop that can be flipped independently of the app chrome. A near-black
+     value is unreadable on a dark panel and a near-white one on a light panel,
+     and no single choice suits both. */
+  #editorPanel.light {
+    --panel-bg: #f7f7f8;
+    --panel-fg: #16181d;
+    --panel-line: #e2e4e8;
+    --panel-card: #ffffff;
+    --panel-dim: #6b7080;
+  }
+  #editorPanel {
+    --panel-bg: var(--app-panel);
+    --panel-fg: var(--app-text);
+    --panel-line: var(--app-border);
+    --panel-card: #191c23;
+    --panel-dim: var(--app-muted);
+    background: var(--panel-bg);
+    color: var(--panel-fg);
+  }
+  #editorPanel.light #filterInput,
+  #editorPanel.light .row .value {
+    background: #fff;
+    color: var(--panel-fg);
+    border-color: var(--panel-line);
+  }
+  /* button.secondary and friends are styled for the dark chrome, so on a light
+     panel their text was white on white - the Inspect and Reset all controls
+     vanished entirely. */
+  #editorPanel.light button.secondary,
+  #editorPanel.light button.icon,
+  #editorPanel.light button.seg {
+    color: var(--panel-fg);
+    border-color: var(--panel-line);
+  }
+  #editorPanel.light button.seg { color: var(--panel-dim); }
+  #editorPanel.light button.secondary:hover,
+  #editorPanel.light button.icon:hover { background: rgba(0, 0, 0, 0.04); }
+  #editorPanel.light button.seg.active,
+  #editorPanel.light button.secondary.active,
+  #editorPanel.light #inspectBtn.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
+
+  #backdropBar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  #backdropBar .sv-hint { font-size: 11px; color: var(--panel-dim); }
+  #backdropBar button.seg { padding: 4px 10px; font-size: 12px; }
+  /* Pushed to the far end: it acts on the whole list, not on the backdrop
+     beside it. */
+  #loadAllFontsBtn { margin-left: auto; padding: 4px 10px; font-size: 11px; }
+  #loadAllFontsBtn.hidden { display: none; }
+
+  .sv-count { font-weight: 400; color: var(--panel-dim); }
+
+  /* How many rules actually reference a variable. A scheme carries plenty of
+     tokens nothing uses, and editing one of those changes nothing on the page
+     - which reads as the tool being broken unless the row says so. */
+  .use {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-line);
+    color: var(--panel-dim);
+    vertical-align: middle;
+  }
+  .use.unused {
+    color: #8a5a00;
+    border-color: #e0b050;
+    background: #fff5dd;
+  }
+  #editorPanel:not(.light) .use.unused {
+    color: #ffcf70;
+    border-color: #6b5320;
+    background: #2a2312;
+  }
+  /* A family the page cannot render. Kept visually distinct from "unused":
+     that one is informational, this one means the preview in front of you is
+     showing a different font from the one in the field. */
+  .use.warn {
+    color: #8a1a1a;
+    border-color: #e08080;
+    background: #ffe8e8;
+  }
+  #editorPanel:not(.light) .use.warn {
+    color: #ff9d9d;
+    border-color: #6b2020;
+    background: #2a1212;
+  }
+  .use.hidden { display: none; }
+
+  /* Opt-in, and deliberately a button rather than something automatic: it
+     reaches out to a third party and adds a face the site does not have. */
+  button.loadfont {
+    margin-left: 6px;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--app-accent);
+    background: transparent;
+    color: var(--app-accent);
+    cursor: pointer;
+    vertical-align: middle;
+  }
+  button.loadfont:hover { background: var(--app-accent); color: #fff; }
+  button.loadfont[disabled] { opacity: 0.5; cursor: default; }
+  button.loadfont.hidden { display: none; }
+  .sv-var {
+    font-size: 10.5px;
+    color: var(--panel-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-all;
+  }
+
+  /* The specimen is the content: a style shows its sizes as rendered lines of
+     text, with the tokens that produce them collapsed until asked for. */
+  .type-style {
+    border-bottom: 1px solid var(--panel-line);
+    padding: 14px 12px 16px;
+    background: var(--panel-card);
+  }
+  .type-style-name {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+    margin-bottom: 10px;
+  }
+  .type-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .type-head::after {
+    content: '';
+    margin-left: auto;
+    flex: 0 0 auto;
+    width: 0;
+    height: 0;
+    border-left: 5px solid var(--panel-dim);
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+    transform: rotate(90deg);
+    transition: transform 0.12s;
+  }
+  .type-head.collapsed::after { transform: rotate(0deg); }
+  .type-head:hover::after { border-left-color: var(--panel-fg); }
+  .bp-chip {
+    flex: 0 0 auto;
+    min-width: 20px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    color: var(--panel-dim);
+    border: 1px solid var(--panel-line);
+    border-radius: 3px;
+    padding: 0 3px;
+  }
+  .type-spec {
+    font-size: 12px;
+    color: var(--panel-dim);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  /* Everything here comes from the captured values, so this rule must not set
+     any of the properties being demonstrated. One line clipped with an
+     ellipsis, so a 45px specimen still shows its true size instead of
+     wrapping into a paragraph. */
+  .type-specimen {
+    margin: 0;
+    color: var(--panel-fg);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .type-vars { display: block; }
+  .type-vars.collapsed { display: none; }
+
+  #svCopied {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--app-accent);
+    color: #fff;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 20;
+  }
+  #svCopied.show { opacity: 1; }
+
+  #inspectBtn.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: #fff;
+  }
+  #inspector {
+    display: none;
+    border-bottom: 1px solid var(--panel-line);
+    padding: 10px 12px;
+    max-height: 45%;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  #inspector.open { display: block; }
+  #inspectorHead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  #inspectorTag {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--app-accent);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .inspect-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 8px 0 2px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: var(--app-muted);
+  }
+  .inspect-var {
+    padding: 3px 0 6px;
+    border-top: 1px solid var(--app-border);
+  }
+  .inspect-var .name { cursor: pointer; }
+  .decl-usage {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--panel-dim);
+    font-size: 10.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding-left: 28px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .decl-usage .text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .decl-usage .chip {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    border: 1px solid var(--panel-line);
+    flex-shrink: 0;
+  }
+  .decl-usage.inactive { opacity: 0.5; font-style: italic; }
+  /* Kept in the tree, out of the way until asked for. */
+  .inspect-var .decl-usage { display: none; }
+  .inspect-var.show-decls .decl-usage { display: flex; }
+  .inspect-var.show-decls .decl-usage.folded { display: none; }
+  .inspect-var.show-decls.show-folded .decl-usage.folded { display: flex; }
+  #editorPanel.show-tech .inspect-var .decl-usage { display: flex; }
+  .decl-more {
+    background: none;
+    border: 0;
+    padding: 2px 0 0;
+    cursor: pointer;
+    display: block;
+    margin-left: 28px;
+    padding: 1px 0;
+    border: 0;
+    background: none;
+    color: var(--panel-dim);
+    font-size: 10px;
+    font-family: inherit;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .decl-more:hover { color: var(--panel-fg); }
+  #inspectorEmpty { color: var(--panel-dim); font-size: 11.5px; }
+  .row.highlight {
+    background: rgba(91, 140, 255, 0.14);
+    box-shadow: inset 2px 0 0 var(--app-accent);
+    border-radius: 5px;
+    padding-left: 6px;
+  }
+  @keyframes flashRow {
+    0%, 100% { background: transparent; }
+    30% { background: rgba(91, 140, 255, 0.4); }
+  }
+  .row.flash { animation: flashRow 0.9s ease; }
+
+  #exportModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #exportModal.open, #importModal.open, #diagModal.open { display: flex; }
+  #importModal, #diagModal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #importBox, #exportBox, #diagBox {
+    background: var(--app-panel);
+    border: 1px solid var(--app-border);
+    border-radius: 8px;
+    padding: 16px;
+    width: 520px;
+    max-width: 90vw;
+  }
+  #importBox h2, #exportBox h2, #diagBox h2 { margin: 0 0 10px; font-size: 14px; }
+  #importHint, #diagHint { font-size: 12px; color: var(--app-muted); margin-bottom: 8px; }
+  #importReport { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  #importReport.error { color: var(--app-danger); }
+  #exportModes { display: flex; margin-bottom: 8px; }
+  #exportSummary {
+    font-size: 12px;
+    color: var(--app-muted);
+    margin-bottom: 8px;
+    min-height: 16px;
+  }
+  #importText, #exportText, #diagText {
+    width: 100%;
+    height: 260px;
+    background: var(--app-bg);
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    padding: 10px;
+    resize: vertical;
+  }
+  /* Scope is the first thing the panel has to answer: am I looking at what I
+     clicked, or at everything? Two counted tabs say it without a legend. */
+  #scopeBar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--panel-border);
+    background: var(--panel-sunk, rgba(255,255,255,0.02));
+  }
+  #scopeToggle { display: flex; }
+  #scopeToggle .seg b { font-weight: 600; opacity: .65; margin-left: 4px; }
+  #scopeToggle .seg:disabled { opacity: .4; cursor: default; }
+  .chip {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--app-accent, #6ea8fe);
+    background: transparent;
+    color: var(--app-accent, #6ea8fe);
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .chip.on { background: var(--app-accent, #6ea8fe); color: #06121f; }
+  .chip.hidden { display: none; }
+
+  /* The trail from <body> down to what is selected, so "selection" is a place
+     on the page rather than a word. Each step is clickable, which is how you
+     style the parent instead. */
+  #crumbs {
+    display: none;
+    gap: 2px;
+    padding: 0 10px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  #crumbs button { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #inspector.open #crumbs { display: flex; }
+  #crumbs button {
+    background: none;
+    border: 0;
+    padding: 1px 4px;
+    border-radius: 3px;
+    color: var(--panel-dim);
+    font: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    cursor: pointer;
+  }
+  #crumbs button:hover { color: var(--panel-text); background: rgba(255,255,255,0.06); }
+  #crumbs button.here { color: var(--app-accent, #6ea8fe); cursor: default; }
+  #crumbs .sep { color: var(--panel-dim); opacity: .5; }
+
+  /* Inspect is a mode, so it has to look like one while it is on. */
+  #inspectBtn.on { background: var(--app-accent, #6ea8fe); color: #06121f; border-color: transparent; }
+  #pickHint { display: none; padding: 6px 10px; font-size: 11px; color: var(--app-accent, #6ea8fe); }
+  #editorPanel.picking #pickHint { display: block; }
+
+  #moreWrap { position: relative; display: inline-flex; }
+  #moreMenu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: var(--app-panel, #16181d);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    z-index: 5;
+  }
+  #moreMenu.hidden { display: none; }
+  #topMoreWrap { position: relative; display: inline-flex; }
+  #topMoreMenu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    background: var(--app-panel, #16181d); border: 1px solid var(--app-border);
+    border-radius: 6px; padding: 4px; display: flex; flex-direction: column;
+    min-width: 160px; z-index: 6;
+  }
+  #topMoreMenu.hidden { display: none; }
+  #topMoreMenu button {
+    background: none; border: 0; text-align: left; padding: 6px 8px;
+    border-radius: 4px; color: var(--app-text); font: inherit; cursor: pointer;
+  }
+  #topMoreMenu button:hover { background: rgba(255,255,255,0.07); }
+  #topMoreMenu button:disabled { opacity: .4; cursor: default; }
+  #moreMenu button {
+    background: none;
+    border: 0;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 4px;
+    color: var(--panel-text);
+    font: inherit;
+    cursor: pointer;
+  }
+  #moreMenu button:hover { background: rgba(255,255,255,0.07); }
+
+  /* ---------------------------------------------------------------- redesign
+     The panel had five things on every row and four of them were developer
+     data. What survives is: what it is, what it looks like, what it is set to.
+     Everything else moved to a tooltip or behind a toggle. */
+
+  #editorPanel { --tool-accent: #5b8cff; }
+
+  .row {
+    min-height: 40px;
+    padding: 8px 12px;
+    gap: 10px;
+    border-radius: 4px;
+  }
+  .row:hover { background: rgba(255, 255, 255, 0.04); }
+
+  /* One shade of emphasis per kind of thing: label, value, group header. */
+  .row .name {
+    font-size: 13px;
+    font-weight: 400;
+    color: color-mix(in srgb, var(--panel-fg) 72%, transparent);
+    letter-spacing: 0;
+  }
+  .row.changed .name { color: var(--panel-fg); }
+
+  /* The token path is the answer to a question a designer never asks. It is
+     one hover, or one toggle, away - not on screen 185 times. */
+  .row .sv-var { display: none; }
+  #editorPanel.show-tech .row .sv-var {
+    display: block;
+    font-size: 10.5px;
+    color: color-mix(in srgb, var(--panel-dim) 80%, transparent);
+  }
+  .row .use { display: none; }
+
+  .row .swatch { width: 24px; height: 24px; border-radius: 4px; }
+  .row .swatch input[type="color"] { inset: -5px; width: 34px; height: 34px; }
+
+  /* The value reads as text until you click it, so a list of 20 rows is not a
+     list of 20 bordered input boxes. */
+  .row input.value {
+    width: 96px;
+    background: transparent;
+    border: 1px solid transparent;
+    text-align: right;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--panel-fg) 70%, transparent);
+    padding: 3px 4px;
+  }
+  .row.changed input.value { color: var(--panel-fg); }
+  .row input.value:hover { border-color: var(--panel-line); }
+  .row input.value:focus {
+    border-color: var(--tool-accent);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--panel-fg);
+    outline: none;
+  }
+
+  .row .reset { opacity: 0; transition: opacity .12s; }
+  .row:hover .reset, .row.changed .reset { opacity: 1; }
+
+  /* "+1 not in force (overridden)" is a sentence about the cascade. A dot is
+     a fact about this row; the sentence is behind it. */
+  .override-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d8a33a;
+    display: inline-block;
+    margin-left: 6px;
+    cursor: help;
+    flex: none;
+  }
+
+  .group { border: 0; margin: 0; background: none; }
+  .group + .group { border-top: 1px solid var(--panel-line); }
+  .group-header {
+    padding: 10px 12px 6px;
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .group-header::before { content: '▾'; font-size: 9px; opacity: .7; }
+  .group.collapsed .group-header::before { content: '▸'; }
+  .group-count { margin-left: auto; opacity: .7; }
+  .group-rows { padding: 0 0 6px; }
+  .group.collapsed .group-rows { display: none; }
+
+  /* The selected element, pinned, with its own ground so it cannot be mistaken
+     for another row in the list. */
+  #selCard {
+    display: none;
+    gap: 10px;
+    align-items: center;
+    margin: 8px 10px;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(91, 140, 255, 0.09);
+    border-left: 3px solid var(--tool-accent);
+  }
+  #selCard.on { display: flex; }
+  #selCard .icon { flex: none; }
+  /* The identity of the selection is the card's job now, so the inspector
+     header no longer repeats it. */
+  #inspectorHead[hidden] { display: none; }
+  #selCardSwatch {
+    width: 30px; height: 30px; border-radius: 4px; flex: none;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.15);
+  }
+  #selCardText { min-width: 0; flex: 1; }
+  #selCardName { font-size: 13px; color: var(--panel-fg); }
+  #selCardSel {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px; color: var(--panel-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Nothing picked is a state worth designing, not an empty list. */
+  #emptyPick { display: none; padding: 28px 16px; text-align: center; }
+  #emptyPick.on { display: block; }
+  #emptyPick .big { font-size: 22px; opacity: .5; }
+  #emptyPick .msg { font-size: 12.5px; color: var(--panel-dim); margin: 6px 0 12px; }
+  #pickNowBtn {
+    background: var(--tool-accent); color: #06121f; border: 0;
+    border-radius: 5px; padding: 7px 14px; font-size: 12.5px; cursor: pointer;
+  }
+
+  #pickHint {
+    background: var(--tool-accent);
+    color: #06121f;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* Ghost, ghost, filled - one primary action, not three. */
+  #editorFooter #resetAllBtn, #editorFooter #moreBtn {
+    background: none;
+    border-color: transparent;
+    color: var(--panel-dim);
+  }
+  #editorFooter #resetAllBtn:hover, #editorFooter #moreBtn:hover { color: var(--panel-fg); }
+
+  /* Telemetry, folded away until asked for. */
+  #statusChip {
+    background: none; border: 1px solid var(--panel-line); color: var(--panel-dim);
+    border-radius: 999px; padding: 2px 10px; font-size: 11px; cursor: pointer;
+  }
+  #status.folded #statusText { display: none; }
+  #status:not(.folded) #statusChip { opacity: .6; }
+
+  .device-chip {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+    border: 1px solid var(--panel-line); border-radius: 3px;
+    padding: 0 4px; margin-left: 6px; color: var(--panel-dim); flex: none;
+  }
+
+  /* The colour picker offers the scheme's own colours first: a designer
+     reaching for a colour almost always wants one already in the system. */
+  #swatchPop {
+    position: fixed;
+    z-index: 20;
+    background: var(--app-panel, #1e2129);
+    border: 1px solid var(--panel-line);
+    border-radius: 8px;
+    padding: 10px;
+    display: none;
+    box-shadow: 0 8px 28px rgba(0,0,0,.5);
+  }
+  #swatchPop.on { display: block; }
+  #swatchPopGrid {
+    display: grid;
+    grid-template-columns: repeat(8, 22px);
+    gap: 6px;
+    margin-bottom: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  #swatchPopGrid button {
+    width: 22px; height: 22px; border-radius: 4px; padding: 0;
+    border: 1px solid rgba(255,255,255,.18); cursor: pointer;
+  }
+  #swatchPopGrid button.here { box-shadow: 0 0 0 2px var(--tool-accent); }
+  #swatchPopFoot { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--panel-dim); }
+
+  #importActions, #exportActions, #diagActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v53</span></h1>
+    <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
+    <span id="loginFields">
+      <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
+      <input id="passInput" class="authField" type="password" placeholder="password" autocomplete="off" />
+    </span>
+    <button id="loadBtn">Load</button>
+    <span id="topMoreWrap">
+      <button id="topMoreBtn" class="secondary" title="Sign-in, re-capture">⋯</button>
+      <div id="topMoreMenu" class="hidden">
+        <button id="loginToggle">Basic Auth</button>
+        <button id="recaptureBtn" title="Re-capture the page currently in the preview" disabled>↻ Recapture</button>
+      </div>
+    </span>
+    <span id="deviceToggle">
+      <button id="desktopBtn" class="seg active" title="Desktop viewport (1440px)">Desktop</button>
+      <button id="mobileBtn" class="seg" title="Mobile viewport (390px)">Mobile</button>
+    </span>
+  </header>
+  <div id="status" class="folded"><button id="statusChip" type="button">ⓘ</button><span id="statusText"></span><button id="cascadeBtn" class="hidden"></button></div>
+
+  <div id="body">
+    <div id="editorPanel">
+      <div id="editorToolbar">
+        <input id="filterInput" type="text" placeholder="Search colours, text, buttons…" />
+        <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it. While this is on, clicking a link inspects it rather than loading it - shift-click to follow it instead.">Inspect</button>
+      </div>
+      <div id="pickHint">Click an element on the page.</div>
+      <div id="selCard">
+        <div id="selCardSwatch"></div>
+        <div id="selCardText">
+          <div id="selCardName"></div>
+          <div id="selCardSel"></div>
+        </div>
+        <button id="selCardUp" class="icon" title="Select the element around this one">↑</button>
+        <button id="selCardClear" class="icon" title="Deselect">✕</button>
+      </div>
+      <div id="scopeBar">
+        <span id="scopeToggle">
+          <button id="scopeSelBtn" class="seg" disabled title="Only what styles the element you picked">This element <b id="scopeSelCount">0</b></button>
+          <button id="scopeAllBtn" class="seg active" title="Everything on the page">Whole page <b id="scopeAllCount">0</b></button>
+        </span>
+        <button id="dirtyChip" class="chip hidden" title="Show only what you have changed"></button>
+      </div>
+      <div id="backdropBar">
+        <span class="sv-hint">Backdrop</span>
+        <span id="backdropToggle">
+          <button id="darkBackdropBtn" class="seg active" title="Judge colours against a dark background">Dark</button>
+          <button id="lightBackdropBtn" class="seg" title="Judge colours against a light background">Light</button>
+        </span>
+        <button id="loadAllFontsBtn" class="secondary hidden"></button>
+      </div>
+      <div id="inspector">
+        <div id="inspectorHead" hidden>
+          <span id="inspectorTag"></span>
+          <button id="inspectParentBtn" class="icon" title="Select parent element">↑</button>
+          <button id="inspectCloseBtn" class="icon" title="Clear selection">✕</button>
+        </div>
+        <div id="crumbs" title="Where this element sits. Click a step to style that parent instead."></div>
+        <div id="inspectorBody"></div>
+      </div>
+      <div id="emptyPick">
+        <div class="big">⌖</div>
+        <div class="msg">Nothing selected.</div>
+        <button id="pickNowBtn">Pick an element</button>
+      </div>
+      <div id="groups"></div>
+      <div id="editorFooter">
+        <button id="resetAllBtn" class="secondary">Reset all</button>
+        <span id="moreWrap">
+          <button id="moreBtn" class="secondary" title="Import, diagnose">More ⋯</button>
+          <div id="moreMenu" class="hidden">
+            <button id="importBtn" title="Paste a :root block to preview a scheme this page does not have yet">Import CSS…</button>
+            <button id="diagBtn" title="What each of the page's stylesheets contributed">Diagnose…</button>
+            <button id="techBtn" title="Show the CSS variable name under every row">Show technical names</button>
+          </div>
+        </span>
+        <button id="exportBtn">Export CSS…</button>
+      </div>
+    </div>
+    <div id="previewWrap">
+      <div id="placeholder">Paste a URL above and click "Load real page" to start editing its Vulcan scheme variables.</div>
+      <iframe id="preview" sandbox="allow-same-origin" style="display:none"></iframe>
+    </div>
+  </div>
+</div>
+
+<div id="svCopied"></div>
+
+<div id="importModal">
+  <div id="importBox">
+    <h2>Import CSS</h2>
+    <div id="importHint">
+      Paste a <code>:root</code> block — a whole scheme file is fine. Every
+      custom property in it is applied to the page on screen as an edit, so a
+      scheme that has not been deployed anywhere can still be seen on the real
+      site. <strong>Reset all</strong> puts it back.
+    </div>
+    <textarea id="importText" spellcheck="false" placeholder=":root {
+  --v-palette-brand-primary-default: #ffdf1b;
+  ...
+}"></textarea>
+    <div id="importReport"></div>
+    <div id="importActions">
+      <button id="importCloseBtn" class="secondary">Cancel</button>
+      <button id="importApplyBtn">Apply to page</button>
+    </div>
+  </div>
+</div>
+
+<div id="diagModal">
+  <div id="diagBox">
+    <h2>Capture diagnosis</h2>
+    <div id="diagHint">
+      What the capture actually got, sheet by sheet. If the preview still looks
+      wrong, copy this and send it — it says which stylesheet came back empty.
+    </div>
+    <textarea id="diagText" spellcheck="false" readonly></textarea>
+    <div id="diagActions">
+      <button id="diagCloseBtn" class="secondary">Close</button>
+      <button id="diagCopyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div id="exportModal">
+  <div id="exportBox">
+    <h2>Export CSS</h2>
+    <div id="exportModes">
+      <button class="seg" data-mode="changed-css">Changed CSS</button>
+      <button class="seg" data-mode="all-css">Full :root</button>
+    </div>
+    <div id="exportSummary"></div>
+    <textarea id="exportText" readonly spellcheck="false"></textarea>
+    <div id="exportActions">
+      <button id="exportCloseBtn" class="secondary">Close</button>
+      <button id="exportDownloadBtn" class="secondary">Download</button>
+      <button id="exportCopyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var state = {
+    original: {},
+    current: {},
+    scope: 'all',
+    onlyDirty: false,
+    css: '',
+    cssList: [],
+    sheetReport: [],
+    body: '',
+    htmlAttrs: {},
+    base: '',
+    schemeNames: [],
+    pageUrl: '',
+    inspecting: true,
+    selected: null,
+    highlight: [],
+    hoverHref: null,
+    lastStatus: '',
+    ruleIndex: null,
+    device: 'desktop',
+    capturedDevice: 'desktop',
+    loading: false,
+    backdrop: 'dark',
+    exportMode: 'changed-css',
+    pageFont: '',
+    authored: {},
+    edits: {},
+    pageFontSize: '',
+    // Tokens currently following a main colour, keyed by variable name with
+    // the role they follow. Kept so a second edit to the same colour - every
+    // step of a colour-picker drag is one - can keep moving them, while a
+    // token somebody set by hand stays put.
+    linked: {},
+    // Families fetched from Google Fonts on request, keyed lowercase. They
+    // survive a recapture, since they are a choice the user made rather than
+    // anything belonging to the captured page.
+    googleFonts: {},
+  };
+
+  // Trailing tokens that identify which text property a typography variable
+  // carries, so `--scheme-typography-buttonBig-mobile-font-size` and its
+  // siblings can be gathered back into one specimen.
+  // Real names spell the property in camelCase and put the breakpoint after it
+  // (`--scheme-typography-buttonBig-fontSize-desktop`), so the property token
+  // is neither kebab-case nor final. Each pattern matches either spelling
+  // anywhere in the name; whatever is left over becomes the set's stem, which
+  // keeps the breakpoint and so keeps `buttonBig-desktop` apart from
+  // `buttonBig-mobile`.
+  var TYPE_PROPS = [
+    { prop: 'font-size', re: /-(?:fontsize|font-size)(?=-|$)/i },
+    { prop: 'font-weight', re: /-(?:fontweight|font-weight)(?=-|$)/i },
+    { prop: 'line-height', re: /-(?:lineheight|line-height)(?=-|$)/i },
+    { prop: 'font-family', re: /-(?:fontfamily|font-family)(?=-|$)/i },
+    { prop: 'letter-spacing', re: /-(?:letterspacing|letter-spacing)(?=-|$)/i },
+    { prop: 'text-transform', re: /-(?:texttransform|text-transform)(?=-|$)/i },
+    { prop: 'font-style', re: /-(?:fontstyle|font-style)(?=-|$)/i },
+  ];
+  var SPECIMEN_TEXT = 'The quick brown fox jumps over the lazy dog';
+
+  var OVERLAY_ID = 'scheme-app-inspect-overlay';
+
+  // Properties that inherit. An ancestor's `color` styles this element's text
+  // even though no rule here mentions it, which is why an element full of
+  // coloured text can look like it has no colour variables of its own.
+  var INHERITABLE = /^(color|font|font-[a-z-]+|line-height|letter-spacing|word-spacing|text-align|text-transform|text-indent|text-shadow|white-space|direction|visibility|cursor|quotes|list-style|list-style-[a-z]+)$/;
+
+  // Properties worth reporting when a rule writes the value straight in rather
+  // than through a variable. Deliberately short: `color: #fff` appears
+  // thousands of times on a real site, and indexing every literal declaration
+  // would swamp both the panel and the lookup.
+  var WATCHED_LITERAL = /^(font|font-family|font-size|font-weight|line-height|color|background-color)$/;
+
+  var els = {
+    urlInput: document.getElementById('urlInput'),
+    loginToggle: document.getElementById('loginToggle'),
+    loginFields: document.getElementById('loginFields'),
+    userInput: document.getElementById('userInput'),
+    passInput: document.getElementById('passInput'),
+    loadBtn: document.getElementById('loadBtn'),
+    recaptureBtn: document.getElementById('recaptureBtn'),
+    desktopBtn: document.getElementById('desktopBtn'),
+    mobileBtn: document.getElementById('mobileBtn'),
+    previewWrap: document.getElementById('previewWrap'),
+    editorPanel: document.getElementById('editorPanel'),
+    lightBackdropBtn: document.getElementById('lightBackdropBtn'),
+    loadAllFontsBtn: document.getElementById('loadAllFontsBtn'),
+    darkBackdropBtn: document.getElementById('darkBackdropBtn'),
+    svCopied: document.getElementById('svCopied'),
+    status: document.getElementById('status'),
+    statusText: document.getElementById('statusText'),
+    cascadeBtn: document.getElementById('cascadeBtn'),
+    filterInput: document.getElementById('filterInput'),
+    groups: document.getElementById('groups'),
+    resetAllBtn: document.getElementById('resetAllBtn'),
+    exportBtn: document.getElementById('exportBtn'),
+    importBtn: document.getElementById('importBtn'),
+    diagBtn: document.getElementById('diagBtn'),
+    diagModal: document.getElementById('diagModal'),
+    diagText: document.getElementById('diagText'),
+    diagCopyBtn: document.getElementById('diagCopyBtn'),
+    diagCloseBtn: document.getElementById('diagCloseBtn'),
+    importModal: document.getElementById('importModal'),
+    importText: document.getElementById('importText'),
+    importReport: document.getElementById('importReport'),
+    importCloseBtn: document.getElementById('importCloseBtn'),
+    importApplyBtn: document.getElementById('importApplyBtn'),
+    preview: document.getElementById('preview'),
+    placeholder: document.getElementById('placeholder'),
+    exportModal: document.getElementById('exportModal'),
+    exportText: document.getElementById('exportText'),
+    exportCloseBtn: document.getElementById('exportCloseBtn'),
+    exportCopyBtn: document.getElementById('exportCopyBtn'),
+    exportDownloadBtn: document.getElementById('exportDownloadBtn'),
+    exportModes: document.getElementById('exportModes'),
+    exportSummary: document.getElementById('exportSummary'),
+    inspectBtn: document.getElementById('inspectBtn'),
+    inspector: document.getElementById('inspector'),
+    inspectorTag: document.getElementById('inspectorTag'),
+    scopeSelBtn: document.getElementById('scopeSelBtn'),
+    scopeAllBtn: document.getElementById('scopeAllBtn'),
+    scopeSelCount: document.getElementById('scopeSelCount'),
+    scopeAllCount: document.getElementById('scopeAllCount'),
+    dirtyChip: document.getElementById('dirtyChip'),
+    crumbs: document.getElementById('crumbs'),
+    selCard: document.getElementById('selCard'),
+    selCardSwatch: document.getElementById('selCardSwatch'),
+    selCardName: document.getElementById('selCardName'),
+    selCardSel: document.getElementById('selCardSel'),
+    selCardClear: document.getElementById('selCardClear'),
+    emptyPick: document.getElementById('emptyPick'),
+    pickNowBtn: document.getElementById('pickNowBtn'),
+    techBtn: document.getElementById('techBtn'),
+    statusEl: document.getElementById('status'),
+    statusChip: document.getElementById('statusChip'),
+    topMoreBtn: document.getElementById('topMoreBtn'),
+    topMoreMenu: document.getElementById('topMoreMenu'),
+    moreBtn: document.getElementById('moreBtn'),
+    moreMenu: document.getElementById('moreMenu'),
+    editorPanel: document.getElementById('editorPanel'),
+    inspectorBody: document.getElementById('inspectorBody'),
+    inspectParentBtn: document.getElementById('inspectParentBtn'),
+    inspectCloseBtn: document.getElementById('inspectCloseBtn'),
+  };
+
+  els.loginToggle.addEventListener('click', function () {
+    els.loginFields.classList.toggle('open');
+  });
+
+  setBackdrop(state.backdrop);
+
+  els.urlInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') loadPage(els.urlInput.value);
+  });
+  els.loadBtn.addEventListener('click', function () {
+    loadPage(els.urlInput.value);
+  });
+  els.recaptureBtn.addEventListener('click', function () {
+    // Deliberately ignores the input box - this re-pulls the page that is
+    // actually on screen, even if something else has been typed since.
+    if (state.pageUrl) loadPage(state.pageUrl);
+  });
+
+  els.desktopBtn.addEventListener('click', function () {
+    setDevice('desktop');
+  });
+  els.mobileBtn.addEventListener('click', function () {
+    setDevice('mobile');
+  });
+  els.lightBackdropBtn.addEventListener('click', function () {
+    setBackdrop('light');
+  });
+  els.darkBackdropBtn.addEventListener('click', function () {
+    setBackdrop('dark');
+  });
+  els.filterInput.addEventListener('input', renderGroups);
+  els.resetAllBtn.addEventListener('click', function () {
+    state.edits = {};
+    state.linked = {};
+    state.current = Object.assign({}, state.original);
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+    renderGroups();
+    applyEdits();
+  });
+  els.cascadeBtn.addEventListener('click', applyCascade);
+  els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
+  els.exportBtn.addEventListener('click', openExport);
+  els.selCardClear.addEventListener('click', closeInspector);
+  document.getElementById('selCardUp').addEventListener('click', function () {
+    if (state.selected && state.selected.parentElement) selectElement(state.selected.parentElement);
+  });
+  els.pickNowBtn.addEventListener('click', function () {
+    if (!state.inspecting) els.inspectBtn.click();
+  });
+  els.techBtn.addEventListener('click', function () {
+    var on = els.editorPanel.classList.toggle('show-tech');
+    els.techBtn.textContent = on ? 'Hide technical names' : 'Show technical names';
+  });
+  els.statusChip.addEventListener('click', function () {
+    els.statusEl.classList.toggle('folded');
+  });
+  els.topMoreBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    els.topMoreMenu.classList.toggle('hidden');
+  });
+  document.addEventListener('click', function () { els.topMoreMenu.classList.add('hidden'); });
+
+  els.scopeAllBtn.addEventListener('click', function () { setScope('all'); });
+  els.scopeSelBtn.addEventListener('click', function () { setScope('selection'); });
+  els.dirtyChip.addEventListener('click', function () {
+    state.onlyDirty = !state.onlyDirty;
+    els.dirtyChip.classList.toggle('on', state.onlyDirty);
+    renderGroups();
+  });
+  els.moreBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    els.moreMenu.classList.toggle('hidden');
+  });
+  document.addEventListener('click', function () { els.moreMenu.classList.add('hidden'); });
+  els.moreMenu.addEventListener('click', function () { els.moreMenu.classList.add('hidden'); });
+
+  els.importBtn.addEventListener('click', openImport);
+  els.diagBtn.addEventListener('click', openDiagnosis);
+  els.diagCloseBtn.addEventListener('click', function () { els.diagModal.classList.remove('open'); });
+  els.diagCopyBtn.addEventListener('click', function () {
+    els.diagText.select();
+    try { document.execCommand('copy'); } catch (err) {}
+  });
+  els.importCloseBtn.addEventListener('click', closeImport);
+  els.importApplyBtn.addEventListener('click', applyImport);
+  els.exportCloseBtn.addEventListener('click', closeExport);
+  els.exportCopyBtn.addEventListener('click', copyExport);
+  els.exportDownloadBtn.addEventListener('click', downloadExport);
+  els.exportModes.addEventListener('click', function (e) {
+    var mode = e.target.getAttribute('data-mode');
+    if (mode) {
+      state.exportMode = mode;
+      renderExport();
+    }
+  });
+
+  els.inspectBtn.addEventListener('click', function () {
+    setInspecting(!state.inspecting);
+  });
+  els.inspectCloseBtn.addEventListener('click', closeInspector);
+  els.inspectParentBtn.addEventListener('click', function () {
+    if (state.selected && state.selected.parentElement) {
+      selectElement(state.selected.parentElement);
+    }
+  });
+  els.preview.addEventListener('load', function () {
+    state.selected = null;
+    // Belong to the document that was just replaced.
+    state.ruleIndex = null;
+    state.usage = null;
+    // Which faces are available is a fact about the document that just went
+    // away, not about the one replacing it.
+    state.faceCache = null;
+    els.inspectBtn.classList.toggle('active', state.inspecting);
+    els.inspectBtn.classList.toggle('on', state.inspecting);
+    els.editorPanel.classList.toggle('picking', state.inspecting);
+
+    // A document we cannot reach means the iframe navigated to the live site
+    // rather than being rendered by us, so nothing on screen matches what
+    // this app thinks it is showing. Say so instead of leaving the editor
+    // pointed at a page that is no longer displayed.
+    if (Object.keys(state.edits).length) applyEdits();
+
+    // Two ways the preview can stop being the document this app rendered: it
+    // navigated somewhere unreadable (the usual, cross-origin case), or it
+    // navigated somewhere readable, which the handlers alone cannot tell from
+    // our own render. The variables block is only ever written by us, so its
+    // absence is the reliable signal. Either way the editor would otherwise go
+    // on describing a page that is no longer on screen.
+    var attached = attachPreviewHandlers();
+    var doc = previewDoc();
+    var ours = !doc || !!doc.getElementById('scheme-app-vars');
+    if (state.pageUrl && (!attached || !ours)) {
+      setStatus('Preview navigated away from the capture — press ↻ Recapture', true);
+    }
+    // A re-rendered preview is a fresh document, so anything fetched for it
+    // has to go back in before the rows measure what it can render.
+    injectGoogleFonts();
+    // The rows were built before this document existed, so their usage badges
+    // had nothing to count. Now there is.
+    refreshAllRows();
+  });
+
+  function setStatus(text, isError) {
+    state.lastStatus = text || '';
+    els.statusText.textContent = state.lastStatus;
+    els.status.classList.toggle('error', !!isError);
+  }
+
+  // Transient message shown while hovering, which must not overwrite the
+  // real status that setStatus is holding.
+  function setHoverStatus(text) {
+    els.statusText.textContent = text || state.lastStatus || '';
+    els.status.classList.remove('error');
+  }
+
+  // The capture is not limited to the --scheme-* namespace, so a page token
+  // like --font-base groups under its own first segment ("font") beside the
+  // scheme's families. Its row still spells out the full name, so there is no
+  // question which namespace a value belongs to.
+  function familyOf(name) {
+    var parts = name.replace(/^--scheme-/, '').split('-').filter(Boolean);
+    if ((parts[0] === 'colors' || parts[0] === 'color') && parts.length > 1) {
+      return parts[1];
+    }
+    return parts[0] || 'other';
+  }
+
+  function isColorValue(value) {
+    var v = (value || '').trim();
+    return /^#([0-9a-f]{3,8})$/i.test(v) || /^(rgb|rgba|hsl|hsla)\(/i.test(v);
+  }
+
+  // Schemes store some colours as a bare channel triplet so they can be
+  // composed as `rgba(var(--scheme-gradients-x), .4)`. That is still a colour
+  // to whoever is editing it, so it gets a swatch - painted through the same
+  // rgb() wrapper the scheme itself writes around it.
+  var TRIPLET = /^\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}$/;
+
+  function isTriplet(value) {
+    return TRIPLET.test((value || '').trim());
+  }
+
+  // The paintable form of a value, or null when it is not a colour at all.
+  function colorCss(value) {
+    var v = (value || '').trim();
+    if (isTriplet(v)) return 'rgb(' + v + ')';
+    return isColorValue(v) ? v : null;
+  }
+
+  // Edits are written back in the notation the variable was authored in, so
+  // picking a colour for a triplet token cannot break the rgba() around it.
+  function hexToTriplet(hex) {
+    var m = String(hex).match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (!m) return hex;
+    return [m[1], m[2], m[3]].map(function (part) {
+      return parseInt(part, 16);
+    }).join(', ');
+  }
+
+  function toHexColor(value) {
+    var v = (value || '').trim();
+    var m = v.match(/^#([0-9a-f]{6})$/i);
+    if (m) return '#' + m[1];
+    m = v.match(/^#([0-9a-f]{3})$/i);
+    if (m) {
+      var s = m[1];
+      return '#' + s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+    }
+    m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (m) {
+      return '#' + [m[1], m[2], m[3]].map(function (n) {
+        var h = parseInt(n, 10).toString(16);
+        return h.length === 1 ? '0' + h : h;
+      }).join('');
+    }
+    return null;
+  }
+
+  // Mirrors normalizeUrl in the capture function so the box shows the URL
+  // that was actually loaded rather than the bare host that was typed.
+  function normalizeUrl(raw) {
+    var trimmed = String(raw).trim();
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)) return trimmed;
+    return 'https://' + trimmed.replace(/^\/+/, '');
+  }
+
+  // Callers pass the URL explicitly. Reading the input box here instead
+  // would make the box the source of truth, so "recapture the page in the
+  // preview" would silently capture whatever had been typed since.
+  async function loadPage(requestedUrl) {
+    var url = String(requestedUrl == null ? '' : requestedUrl).trim();
+    if (!url) {
+      setStatus('Enter a URL first', true);
+      return;
+    }
+    // Only the Load button used to be disabled while a capture ran, so
+    // Recapture or a link click could start a second one. Two in flight
+    // interleave: each snapshots edits from whatever state it saw, and
+    // whichever finishes last wins, leaving pageUrl from one page beside the
+    // body of another.
+    if (state.loading) return;
+    state.loading = true;
+
+    url = normalizeUrl(url);
+    els.urlInput.value = url;
+    setStatus('Loading real page… this can take a few seconds');
+    els.loadBtn.disabled = true;
+    els.recaptureBtn.disabled = true;
+
+    // Edits are carried onto the next page so a scheme in progress can be
+    // checked across several pages without re-entering it each time.
+    var edits = Object.assign({}, state.edits);
+
+    var payload = { url: url, device: state.device };
+    if (els.loginFields.classList.contains('open') && els.userInput.value) {
+      payload.user = els.userInput.value;
+      payload.pass = els.passInput.value;
+    }
+
+    try {
+      // One path for both hosts: Vercel serves functions from /api, and
+      // netlify.toml redirects /api/* onto the Netlify function.
+      var res = await fetch('/api/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      var data = await res.json();
+      if (!res.ok) {
+        throw new Error(data && data.error ? data.error : 'Capture failed (' + res.status + ')');
+      }
+
+      state.original = data.root || {};
+      state.current = Object.assign({}, state.original);
+      state.valueGroups = null;
+      state.cascade = null;
+      state.linked = {};
+      els.cascadeBtn.classList.add('hidden');
+      // Authored text, so a token written as var(--other) keeps that link and
+      // editing the variable it points at still changes it.
+      state.authored = data.authored || Object.assign({}, state.original);
+      state.edits = {};
+
+      var carried = 0;
+      Object.keys(edits).forEach(function (name) {
+        if (Object.prototype.hasOwnProperty.call(state.current, name)) {
+          state.edits[name] = edits[name];
+          state.current[name] = edits[name];
+          carried++;
+        }
+      });
+
+      state.sheetReport = data.sheetReport || [];
+      state.cssList = data.cssList || [];
+      state.css = data.css || '';
+      state.body = data.body || '';
+      state.htmlAttrs = data.htmlAttrs || {};
+      state.base = data.base || '';
+      state.pageUrl = data.pageUrl || url;
+      state.capturedDevice = data.device || state.device;
+      state.pageFont = data.pageFont || '';
+      state.pageFontSize = data.pageFontSize || '';
+      state.schemeNames = data.schemeNames || [];
+      state.cssMissing = data.cssMissing || 0;
+      state.cssCount = data.cssCount || 0;
+      els.recaptureBtn.disabled = false;
+      // Spell out the target, so it is clear this is tied to the previewed
+      // page and not to the input box.
+      els.recaptureBtn.title = 'Re-capture the page in the preview:\n' + state.pageUrl;
+
+      // A redirect means the URL box no longer names what is on screen.
+      if (state.pageUrl !== url) els.urlInput.value = state.pageUrl;
+
+      // The previous selection belongs to a page that is gone.
+      state.highlight = [];
+      state.selected = null;
+      state.hoverHref = null;
+      els.inspector.classList.remove('open');
+
+      renderFontOptions();
+      renderGroups();
+      renderPreview();
+      // Type specimens should use the site's real faces, which only exist in
+      // the captured stylesheets.
+      adoptFontFaces(state.css, state.pageUrl);
+      adoptFontImports(state.css);
+      // The page's own tokens (--font-base, --fw-bold) are counted separately:
+      // they are what the scheme's typography points at, so seeing them arrive
+      // is what tells you the family and weight are editable at their source.
+      var others = data.schemeCount == null ? 0 : data.varCount - data.schemeCount;
+      setStatus(
+        data.varCount + ' variables loaded (' + state.capturedDevice + ')' +
+        (others ? ' · ' + others + ' page-level, ' + data.schemeCount + ' scheme' : '') +
+        (state.schemeNames.length ? ' · schemes: ' + state.schemeNames.join(', ') : '') +
+        (carried ? ' · ' + carried + ' edit' + (carried === 1 ? '' : 's') + ' kept' : '') +
+        (state.cssMissing
+          ? ' · ⚠ ' + state.cssMissing + ' of ' + state.cssCount +
+            ' stylesheets could not be read — the preview is missing its styling'
+          : '') +
+        (state.inspecting ? ' · click anything to inspect it · shift-click a link to follow it' : ' · click a link to browse'),
+        state.cssMissing > 0
+      );
+    } catch (err) {
+      setStatus(err.message || 'Failed to load page', true);
+    } finally {
+      state.loading = false;
+      els.loadBtn.disabled = false;
+      // Stays disabled after a first failed capture, since there is still no
+      // previewed page to re-pull.
+      els.recaptureBtn.disabled = !state.pageUrl;
+    }
+  }
+
+  // A family value: a quoted face name, or a stack ending in one of CSS's
+  // generic families. Used to tell `"Lato", sans-serif` apart from the weights
+  // and sizes that sit beside it under the same `font` prefix.
+  var GENERIC_FAMILY = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-serif|ui-sans-serif|ui-monospace|ui-rounded|math|emoji|fangsong)\s*$/i;
+
+  function isFamilyValue(value) {
+    var v = (value || '').trim();
+    if (!v) return false;
+    return /['"]/.test(v) || GENERIC_FAMILY.test(v);
+  }
+
+  // Typing a family the site does not load is the one edit that changes the
+  // CSS and nothing else: the browser silently falls through to the next
+  // family in the stack, so the field says "Henny Penny" while the page keeps
+  // rendering in its old face and the tool looks broken. The preview's own
+  // FontFaceSet is asked whether the face can actually be rendered - it is the
+  // authority, covering the page's @font-face rules, its imported sheets, and
+  // fonts installed on this machine alike.
+  function markFontAvailability(row, value) {
+    var warn = row._warn;
+    if (!warn) return;
+
+    var hide = function () {
+      warn.classList.add('hidden');
+    };
+
+    var first = displayFamily(value);
+    var doc = previewDoc();
+    // A stack of nothing but generic keywords always renders.
+    if (!doc || !doc.fonts || !first || GENERIC_FAMILY.test(first)) {
+      hide();
+      return;
+    }
+
+    var apply = function (available) {
+      // The row may have been re-rendered or edited again while a face loaded.
+      if (!row.isConnected || state.current[row._varName] !== value) return;
+      warn.classList.toggle('hidden', available);
+      warn.title =
+        first + ' is not among the faces this page loads, so the preview falls ' +
+        'back to the next family in the stack. Pick one from the field\'s list, ' +
+        'add the font to the site itself, or fetch it from Google Fonts to see it here.';
+      if (row._loadBtn) {
+        var offered = !available && !state.googleFonts[first.toLowerCase()];
+        row._loadBtn.classList.toggle('hidden', !offered);
+        row._loadBtn.disabled = false;
+      }
+    };
+
+    if (faceAvailable(doc, first)) {
+      apply(true);
+      return;
+    }
+
+    // A face the page declares but has not fetched yet measures like the
+    // fallback, so ask for it before concluding it is missing.
+    apply(false);
+    if (!doc.fonts || !doc.fonts.load) return;
+    try {
+      doc.fonts.load('16px "' + first.replace(/"/g, '') + '"').then(function () {
+        apply(faceAvailable(doc, first, true));
+      }, function () {
+        apply(false);
+      });
+    } catch (err) {
+      // FontFaceSet.load unavailable; the immediate result stands.
+    }
+  }
+
+  // Fetches a family from Google Fonts so a face the site does not carry can
+  // still be judged on screen. Explicitly a button press, never automatic:
+  // it calls a third party, and it puts a font in front of you that the site
+  // cannot render until someone adds the import to it. That caveat travels
+  // with the export rather than being left as a surprise.
+  async function fetchGoogleFont(family) {
+    var name = String(family || '').replace(/["']/g, '').trim();
+    if (!name) return false;
+    if (state.googleFonts[name.toLowerCase()]) return true;
+
+    var base = 'https://fonts.googleapis.com/css2?family=' +
+      encodeURIComponent(name).replace(/%20/g, '+');
+    // The weight axis is asked for first so weight edits show, and dropped on
+    // a second try: a family with only static weights answers 400 to a range.
+    var candidates = [base + ':wght@100..900&display=swap', base + '&display=swap'];
+
+    for (var i = 0; i < candidates.length; i++) {
+      try {
+        var res = await fetch(candidates[i]);
+        if (!res.ok) continue;
+        var css = await res.text();
+        if (css.indexOf('@font-face') === -1) continue;
+
+        state.googleFonts[name.toLowerCase()] = {
+          family: name,
+          url: candidates[i],
+          css: css,
+        };
+        return true;
+      } catch (err) {
+        // try the next form, then give up on this family
+      }
+    }
+
+    return false;
+  }
+
+  // Everything that has to happen once faces have arrived: put them in both
+  // documents, throw away the measurements that said they were missing, and
+  // let every row look again.
+  async function adoptFetchedFonts() {
+    injectGoogleFonts();
+
+    // Declaring @font-face does not fetch anything: a browser loads a face
+    // when something needs it. Measuring straight after injecting therefore
+    // still sees the fallback, and every row would flash "not loaded" until
+    // some later refresh happened to catch up. Asking for each face first
+    // means the panel updates once, and correctly.
+    var doc = previewDoc();
+    var pending = [];
+    Object.keys(state.googleFonts).forEach(function (key) {
+      var spec = '16px "' + state.googleFonts[key].family.replace(/"/g, '') + '"';
+      [document, doc].forEach(function (target) {
+        if (!target || !target.fonts || !target.fonts.load) return;
+        pending.push(target.fonts.load(spec).catch(function () {}));
+      });
+    });
+
+    try {
+      await Promise.all(pending);
+    } catch (err) {
+      // A face that will not load is reported by the row that asked for it.
+    }
+
+    state.faceCache = null;
+    refreshAllRows();
+  }
+
+  var PREVIEW_ONLY_NOTE =
+    ' for preview only — the site cannot render ' +
+    'them until the @import is added there, and Export CSS carries those lines.';
+
+  async function loadGoogleFont(family) {
+    var name = String(family || '').replace(/["']/g, '').trim();
+    if (!name || state.googleFonts[name.toLowerCase()]) return;
+
+    setStatus('Fetching ' + name + ' from Google Fonts…');
+    var loaded = await fetchGoogleFont(name);
+    if (!loaded) {
+      setStatus('Could not fetch ' + name + ' from Google Fonts', true);
+      return;
+    }
+
+    await adoptFetchedFonts();
+    setStatus(name + ' loaded' + PREVIEW_ONLY_NOTE.replace('them', 'it'));
+  }
+
+  // The families the scheme names but the page cannot render. A scheme
+  // routinely lists twenty faces and loads two, and fetching them one row at a
+  // time to see what they look like is twenty clicks for one decision.
+  function missingFamilies() {
+    var doc = previewDoc();
+    var seen = {};
+    var out = [];
+
+    Object.keys(state.current).forEach(function (name) {
+      var value = state.current[name];
+      if (!isFamilyValue(value) && !/font-?family/i.test(name)) return;
+
+      var first = displayFamily(value);
+      if (!first || GENERIC_FAMILY.test(first)) return;
+
+      var key = first.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+
+      if (state.googleFonts[key]) return;
+      if (doc && faceAvailable(doc, first)) return;
+      out.push(first);
+    });
+
+    return out;
+  }
+
+  async function loadAllGoogleFonts() {
+    var missing = missingFamilies();
+    if (!missing.length) return;
+
+    els.loadAllFontsBtn.disabled = true;
+    els.loadAllFontsBtn.textContent = 'Fetching…';
+
+    var done = 0;
+    var loaded = 0;
+    setStatus('Fetching ' + missing.length + ' families from Google Fonts…');
+
+    await Promise.all(
+      missing.map(function (name) {
+        return fetchGoogleFont(name).then(function (ok) {
+          done++;
+          if (ok) loaded++;
+          setStatus('Fetching from Google Fonts… ' + done + '/' + missing.length);
+        });
+      })
+    );
+
+    await adoptFetchedFonts();
+    els.loadAllFontsBtn.disabled = false;
+    updateLoadAllButton();
+
+    var absent = missing.length - loaded;
+    setStatus(
+      (loaded ? loaded + ' famil' + (loaded === 1 ? 'y' : 'ies') + ' loaded' : 'None loaded') +
+      (loaded ? PREVIEW_ONLY_NOTE : '') +
+      (absent ? ' · ' + absent + ' not on Google Fonts' : ''),
+      !loaded
+    );
+  }
+
+  function updateLoadAllButton() {
+    var missing = missingFamilies();
+    els.loadAllFontsBtn.classList.toggle('hidden', !missing.length);
+    if (!missing.length) return;
+    els.loadAllFontsBtn.textContent =
+      'Load ' + missing.length + ' font' + (missing.length === 1 ? '' : 's') + ' from Google';
+    els.loadAllFontsBtn.title =
+      'Fetch every family this scheme names that the page cannot render, so they ' +
+      'can be compared on the real page:\n' + missing.slice(0, 15).join('\n') +
+      (missing.length > 15 ? '\n… and ' + (missing.length - 15) + ' more' : '') +
+      '\n\nPreview only — the site still needs the @import, which Export CSS includes.';
+  }
+
+  // Into both documents: the preview so the page renders in it, and this one
+  // so the rows and specimens beside it agree.
+  function injectGoogleFonts() {
+    var css = Object.keys(state.googleFonts)
+      .map(function (key) {
+        return state.googleFonts[key].css;
+      })
+      .join('\n');
+
+    var own = document.getElementById('googleFonts');
+    if (!own) {
+      own = document.createElement('style');
+      own.id = 'googleFonts';
+      document.head.appendChild(own);
+    }
+    own.textContent = css;
+
+    var doc = previewDoc();
+    if (!doc || !doc.head) return;
+    var el = doc.getElementById('scheme-app-google');
+    if (!el) {
+      el = doc.createElement('style');
+      el.id = 'scheme-app-google';
+      doc.head.appendChild(el);
+    }
+    el.textContent = css;
+  }
+
+  // Whether a face can actually be rendered, measured rather than asked.
+  // FontFaceSet.check() is no use here: for a family nobody defines it still
+  // answers true, because the text *can* be drawn - in the fallback. Rendering
+  // a fixed string in `"X", <generic>` and in `<generic>` alone and comparing
+  // widths is the only reliable test; if X exists the two differ. Three
+  // generics are tried, since a face that happens to metric-match one of them
+  // would look absent against that one alone.
+  function faceAvailable(doc, family, refresh) {
+    if (!doc.body) return true;
+    if (!state.faceCache) state.faceCache = {};
+    var key = family.toLowerCase();
+    if (!refresh && Object.prototype.hasOwnProperty.call(state.faceCache, key)) {
+      return state.faceCache[key];
+    }
+
+    var probe = doc.createElement('span');
+    probe.textContent = 'mmmlliWWW0Oo';
+    probe.style.cssText =
+      'position:absolute;left:-9999px;top:-9999px;font-size:72px;' +
+      'white-space:nowrap;visibility:hidden;';
+    doc.body.appendChild(probe);
+
+    var quoted = '"' + family.replace(/"/g, '') + '"';
+    var available = false;
+    ['monospace', 'serif', 'sans-serif'].forEach(function (generic) {
+      if (available) return;
+      probe.style.fontFamily = generic;
+      var base = probe.offsetWidth;
+      probe.style.fontFamily = quoted + ',' + generic;
+      if (probe.offsetWidth !== base) available = true;
+    });
+
+    doc.body.removeChild(probe);
+    state.faceCache[key] = available;
+    return available;
+  }
+
+  // What to call a font stack: the face that actually gets used, unquoted.
+  function displayFamily(value) {
+    var first = String(value || '').split(',')[0].replace(/['"]/g, '').trim();
+    return first || String(value || '').trim();
+  }
+
+  // The families offered when editing one. Every option comes from the capture
+  // - the stacks the scheme already uses, and the faces the page loads through
+  // @font-face - because a font this app made up would not be downloadable by
+  // the site and would render as a fallback on someone else's machine.
+  // Whole stacks are offered rather than bare names so picking one keeps its
+  // fallbacks instead of silently dropping them.
+  function renderFontOptions() {
+    var list = document.getElementById('fontFamilies');
+    if (!list) {
+      list = document.createElement('datalist');
+      list.id = 'fontFamilies';
+      document.body.appendChild(list);
+    }
+
+    var seen = {};
+    var options = [];
+    var add = function (value) {
+      var v = (value || '').trim();
+      if (!v || seen[v]) return;
+      seen[v] = true;
+      options.push(v);
+    };
+
+    Object.keys(state.current).sort().forEach(function (name) {
+      if (isFamilyValue(state.current[name])) add(state.current[name]);
+    });
+
+    var blocks = (state.css || '').match(/@font-face\s*\{[^}]*\}/g) || [];
+    blocks.forEach(function (block) {
+      var m = block.match(/font-family\s*:\s*([^;}]+)/i);
+      if (m) add(m[1].trim());
+    });
+
+    list.innerHTML = '';
+    options.forEach(function (value) {
+      var option = document.createElement('option');
+      option.value = value;
+      list.appendChild(option);
+    });
+    state.fontOptions = options.length;
+  }
+
+  // Sites that load a typeface with `@import url(fonts.googleapis…)` keep the
+  // faces in that imported sheet, not in one of their own @font-face rules, so
+  // copying only the latter leaves the panel drawing "Lato" in whatever the
+  // system happens to have. The imports are re-declared here as stylesheet
+  // links, which also sidesteps @import's rule that it must come first.
+  function adoptFontImports(css) {
+    var old = document.querySelectorAll('link[data-adopted-import]');
+    for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+
+    var re = /@import\s+(?:url\(\s*(['"]?)([^'")]+)\1\s*\)|(['"])([^'"]+)\3)/g;
+    var match;
+    var seen = {};
+    while ((match = re.exec(css || ''))) {
+      var href = match[2] || match[4];
+      // Only real stylesheet URLs. The capture rewrites relative ones to
+      // absolute, so anything else here is not something to load.
+      if (!href || !/^(https?:)?\/\//i.test(href) || seen[href]) continue;
+      seen[href] = true;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.setAttribute('data-adopted-import', '');
+      document.head.appendChild(link);
+    }
+  }
+
+  // Copies the captured @font-face rules into this document so specimens
+  // render in the site's own typeface rather than a system fallback. Relative
+  // url()s are rewritten against the captured page, since they were written
+  // relative to the stylesheet's origin, not to this app.
+  function adoptFontFaces(css, pageUrl) {
+    var el = document.getElementById('adoptedFonts');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'adoptedFonts';
+      document.head.appendChild(el);
+    }
+
+    var blocks = (css || '').match(/@font-face\s*\{[^}]*\}/g);
+    if (!blocks) {
+      el.textContent = '';
+      return;
+    }
+
+    el.textContent = blocks
+      .map(function (block) {
+        return block.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/g, function (whole, quote, ref) {
+          if (/^(data:|https?:|\/\/)/i.test(ref)) return whole;
+          try {
+            return 'url("' + new URL(ref, pageUrl).toString() + '")';
+          } catch (err) {
+            return whole;
+          }
+        });
+      })
+      .join('\n');
+  }
+
+  // Two rounds of fixing this blind were two too many. The report says what
+  // each sheet contributed and what the rendered preview actually looks like,
+  // so a preview that is still wrong can be read rather than guessed at.
+  function openDiagnosis() {
+    var lines = [];
+    // First line, because a report read against the wrong build wastes a whole
+    // round trip: a deploy that had not landed yet looked exactly like a fix
+    // that had not worked.
+    lines.push('build: ' + document.getElementById('buildTag').textContent);
+    lines.push('page: ' + (state.pageUrl || '(nothing captured yet)'));
+    lines.push('device: ' + state.capturedDevice + ' · variables: ' + Object.keys(state.current).length +
+      ' · edits: ' + Object.keys(state.edits).length);
+    lines.push('<html> attributes: ' + (htmlAttrsText().trim() || '(none)'));
+    lines.push('css delivered to preview: ' + state.css.length + ' bytes');
+    lines.push('');
+
+    lines.push('stylesheets (' + state.sheetReport.length + '):');
+    state.sheetReport.forEach(function (sheet, i) {
+      var bits = [String(i + 1) + '.', sheet.kind];
+      if (sheet.media) bits.push('media=' + sheet.media);
+      if (sheet.disabled) bits.push('DISABLED');
+      bits.push(sheet.rules < 0 ? 'rules=unreadable' : 'rules=' + sheet.rules);
+      bits.push(sheet.bytes + 'b' + (sheet.bytes ? '' : '  <-- EMPTY'));
+      bits.push(sheet.href || '(inline)');
+      lines.push('  ' + bits.join('  '));
+    });
+
+    var doc = previewDoc();
+    lines.push('');
+    if (!doc) {
+      lines.push('preview: not readable');
+    } else {
+      var body = doc.body;
+      var win = doc.defaultView;
+      var bodyStyle = body ? win.getComputedStyle(body) : null;
+      lines.push('preview: ' + doc.querySelectorAll('*').length + ' elements');
+      lines.push('  body font: ' + (bodyStyle ? bodyStyle.fontFamily : '?'));
+      lines.push('  body background: ' + (bodyStyle ? bodyStyle.backgroundColor : '?'));
+      // An unstyled page is one where almost nothing matched a rule. Counting
+      // elements that ended up with no background and no padding separates
+      // "the CSS is missing" from "the CSS is there and the colours are off".
+      var plain = 0;
+      var total = 0;
+      Array.prototype.forEach.call(doc.querySelectorAll('div, section, header, nav, a, button'), function (el) {
+        total++;
+        var cs = win.getComputedStyle(el);
+        if (cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.padding === '0px' && cs.display !== 'none') plain++;
+      });
+      lines.push('  unstyled-looking boxes: ' + plain + ' of ' + total);
+      lines.push('  body tag: <body' + attrsOf(body) + '>');
+
+      // Rule counts inside the preview, not in the capture. The capture can
+      // hand over a perfect 800KB of CSS and the preview still parse none of
+      // it, and the two look identical from outside.
+      lines.push('  stylesheets inside preview: ' + doc.styleSheets.length);
+      var ourStyles = doc.querySelectorAll('style.scheme-app-css');
+      var survived = 0;
+      Array.prototype.forEach.call(ourStyles, function (el) { survived += el.textContent.length; });
+      var sent = 0;
+      (state.cssList || []).forEach(function (part) { sent += part.length; });
+      lines.push('  css that survived into the preview: ' + survived + ' of ' + (sent || state.css.length) + ' bytes');
+
+      // Per sheet, because that is the resolution the fault has. A sheet the
+      // capture read fine that yields no rules here was broken between the
+      // two - by this app, not by the site.
+      var sheetsHere = [];
+      Array.prototype.forEach.call(ourStyles, function (el, i) {
+        var count = -1;
+        try { count = el.sheet ? el.sheet.cssRules.length : -1; } catch (err) {}
+        if (el.sheet) sheetsHere.push(el.sheet);
+        var at = parseInt(el.getAttribute('data-sheet'), 10);
+        if (isNaN(at)) at = i;
+        var report = state.sheetReport[at] || {};
+        var said = typeof report.rules === 'number' ? report.rules : null;
+        // :root blocks are removed on purpose - the editor owns those
+        // variables - and a media-restricted sheet is wrapped in a single
+        // @media rule that becomes its only top-level rule. Both make the
+        // preview's count differ from the live page's by design, so the
+        // arithmetic is spelled out: what is left over is real loss.
+        var dropped = report.rootsDropped || 0;
+        var restricted = report.media && report.media.toLowerCase() !== 'all';
+        var expected = said === null ? null : (restricted ? 1 : said - dropped);
+        var note = said === null ? '' :
+          '  (live page ' + said +
+          (restricted ? ' wrapped in @media ' + report.media : '') +
+          (dropped ? ' less ' + dropped + ' :root' : '') +
+          (expected === count ? ' = as expected)' : ', expected ' + expected + ' HERE IS THE LOSS)');
+        lines.push('    sheet ' + (at + 1) + '  ' + el.textContent.length + 'b  rules=' +
+          (count < 0 ? 'unreadable' : count) + note);
+        // Only for the ones that died: the shape that killed them.
+        if (count === 0 && el.textContent.length > 0) {
+          lines.push('      ' + cssShape(el.textContent));
+          lines.push('      starts: ' + JSON.stringify(el.textContent.slice(0, 120)));
+        }
+      });
+      Array.prototype.forEach.call(doc.styleSheets, function (sheet) {
+        var node = sheet.ownerNode;
+        if (node && node.className === 'scheme-app-css') return;
+        var count = -1;
+        try { count = sheet.cssRules.length; } catch (err) {}
+        lines.push('    ' + ((node && node.id) || sheet.href || '(inline)') +
+          '  rules=' + (count < 0 ? 'unreadable' : count));
+      });
+
+      // The decisive one. Selectors taken from the sheet the preview actually
+      // parsed, tried against the body the preview actually has: if they parse
+      // but match nothing, the CSS and the markup have come apart, and no
+      // amount of fixing the capture's plumbing will show anything.
+      var selectors = [];
+      var walk = function (rules) {
+        Array.prototype.forEach.call(rules, function (rule) {
+          if (rule.selectorText) selectors.push(rule.selectorText);
+          else if (rule.cssRules) walk(rule.cssRules);
+        });
+      };
+      // Every sheet, not just the biggest one. Sampling a single sheet asked
+      // the question of whichever chunk happened to have the most rules, and
+      // a site's global CSS - the part that styles body - is usually its
+      // smallest file.
+      sheetsHere.forEach(function (sheet) {
+        try { walk(sheet.cssRules); } catch (err) {}
+      });
+      lines.push('  selectors parsed: ' + selectors.length);
+      var step = Math.max(1, Math.floor(selectors.length / 40));
+      var tried = 0;
+      var matched = 0;
+      var misses = [];
+      for (var i = 0; i < selectors.length && tried < 40; i += step) {
+        // Pseudo-classes and pseudo-elements match nothing on their own, so
+        // they are dropped: the question is whether the class exists at all.
+        var sel = selectors[i].replace(/::?[A-Za-z-]+(\([^)]*\))?/g, '').trim();
+        if (!sel || /^[,>+~]/.test(sel)) continue;
+        tried++;
+        try {
+          if (doc.querySelector(sel)) matched++;
+          else if (misses.length < 6) misses.push(selectors[i]);
+        } catch (err) {
+          tried--;
+        }
+      }
+      lines.push('  of ' + tried + ' sampled selectors, ' + matched + ' match something in the preview');
+      if (misses.length) lines.push('    misses: ' + misses.join(' | '));
+
+      // body came out in Times New Roman with no background once, which is
+      // what a page looks like when nothing styles it at all. These two say
+      // whether a rule for body exists and whether the family it names is a
+      // variable that resolved.
+      var bodyRules = selectors.filter(function (sel) { return /(^|[\s,>+~])body\b/.test(sel); });
+      lines.push('  rules naming body: ' + bodyRules.length +
+        (bodyRules.length ? '  e.g. ' + bodyRules.slice(0, 3).join(' | ') : ''));
+      var rootStyle = win.getComputedStyle(doc.documentElement);
+      var fontVars = Object.keys(state.current)
+        .filter(function (name) { return /font/i.test(name) && /family|base|title|body|heading/i.test(name); })
+        .slice(0, 4);
+      fontVars.forEach(function (name) {
+        lines.push('  ' + name + ' = ' + (rootStyle.getPropertyValue(name) || '(empty)'));
+      });
+    }
+
+    els.diagText.value = lines.join('\n');
+    els.diagModal.classList.add('open');
+  }
+
+  // One <style> per captured sheet, not one for all of them. CSS has no
+  // recovery from an unbalanced comment or an unclosed block: the parser
+  // swallows everything after it, so a single mangled sheet in a
+  // concatenation costs every rule that follows it. Kept separate, it costs
+  // only its own, and the rule counts say which sheet is at fault.
+  function cssStyleBlocks() {
+    var parts = state.cssList && state.cssList.length ? state.cssList : [state.css];
+    return parts
+      .map(function (part, i) {
+        if (!part) return '';
+        // Inside <style> the HTML parser stops at the first "</style",
+        // wherever it falls. In CSS that sequence only ever occurs inside a
+        // string or a comment, where \/ means /, so escaping it is a no-op.
+        // data-sheet carries the index in the capture, because a sheet that
+        // contributed nothing gets no element and everything after it would
+        // otherwise be compared against the wrong sheet's numbers.
+        return '<style class="scheme-app-css" data-sheet="' + i + '" id="scheme-app-css-' + i + '">' +
+          part.replace(/<\/(style)/gi, '<\\/$1') + '</style>';
+      })
+      .join('');
+  }
+
+  // What a stylesheet that produced no rules looks like from the outside. CSS
+  // fails silently, so these two counts are the difference between "the sheet
+  // is fine and nothing matched" and "the sheet was destroyed before it was
+  // parsed".
+  function cssShape(text) {
+    var depth = 0;
+    for (var i = 0; i < text.length; i++) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') depth--;
+    }
+    return 'comments ' + (text.match(/\/\*/g) || []).length + ' open / ' +
+      (text.match(/\*\//g) || []).length + ' close, brace balance ' +
+      (depth > 0 ? '+' : '') + depth;
+  }
+
+  function attrsOf(el) {
+    if (!el) return '';
+    return Array.prototype.map.call(el.attributes, function (attr) {
+      return ' ' + attr.name + '="' + attr.value + '"';
+    }).join('');
+  }
+
+  // A theme class, a data-theme or the class a font loader hangs its --font-*
+  // variables off all live on <html>. Without them every rule keyed to one of
+  // them misses and a fully captured page still renders unstyled.
+  function htmlAttrsText() {
+    var attrs = state.htmlAttrs || {};
+    return Object.keys(attrs)
+      .map(function (name) {
+        if (!/^[A-Za-z_:][-A-Za-z0-9_:.]*$/.test(name)) return '';
+        return ' ' + name + '="' + String(attrs[name]).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"';
+      })
+      .join('');
+  }
+
+  function renderPreview() {
+    // Base is the captured page's own URL, not just its origin, so relative
+    // links and assets in a subdirectory resolve the way they do on the
+    // real site.
+    // state.body is the captured <body> element, tag and all, so it is dropped
+    // in as the document's body rather than nested inside another one.
+    var doc = '<!doctype html><html' + htmlAttrsText() + '><head><base href="' +
+      (state.pageUrl || state.base + '/') + '">' +
+      // Without this the iframe uses a desktop-sized layout viewport and
+      // width-based media queries never fire at phone widths.
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      cssStyleBlocks() +
+      '<style id="scheme-app-vars">' + buildRootBlock(state.authored) + '</style>' +
+      '</head>' + state.body + '</html>';
+
+    els.preview.style.display = '';
+    els.placeholder.style.display = 'none';
+    els.preview.srcdoc = doc;
+  }
+
+  // An edit is an inline override on the preview's :root, so removing it lets
+  // the authored declaration - var() reference and all - apply again.
+  function applyEdits() {
+    var doc = previewDoc();
+    if (!doc) {
+      renderPreview();
+      return;
+    }
+    var docEl = doc.documentElement;
+    Object.keys(state.current).forEach(function (name) {
+      if (Object.prototype.hasOwnProperty.call(state.edits, name)) {
+        docEl.style.setProperty(name, state.edits[name]);
+      } else {
+        docEl.style.removeProperty(name);
+      }
+    });
+    syncResolved();
+  }
+
+  function applyVar(name) {
+    var doc = previewDoc();
+    if (!doc) {
+      renderPreview();
+      return;
+    }
+    var docEl = doc.documentElement;
+    if (Object.prototype.hasOwnProperty.call(state.edits, name)) {
+      docEl.style.setProperty(name, state.edits[name]);
+    } else {
+      docEl.style.removeProperty(name);
+    }
+  }
+
+  // Editing a general colour changes every token written as var() against it,
+  // so the effective value of every other variable is re-read from the preview
+  // and any row that moved is refreshed. Without this a dependent token keeps
+  // displaying its old colour even though the page has already repainted.
+  function syncResolved() {
+    var doc = previewDoc();
+    if (!doc) return;
+
+    var computed = doc.defaultView.getComputedStyle(doc.documentElement);
+    Object.keys(state.current).forEach(function (name) {
+      if (Object.prototype.hasOwnProperty.call(state.edits, name)) return;
+      var value = computed.getPropertyValue(name).trim();
+      if (!value || value === state.current[name]) return;
+      state.current[name] = value;
+      state.valueGroups = null;
+      refreshRowsFor(name);
+      refreshTypeSets(name);
+    });
+
+    // Most typography sets declare a size and weight but no family, so their
+    // specimens fall back to the page's own. That fallback was frozen at
+    // capture time, which left every specimen rendering in the old face after
+    // an edit to --font-base while the preview beside it had already changed.
+    if (!doc.body) return;
+    var bodyStyle = doc.defaultView.getComputedStyle(doc.body);
+    var font = bodyStyle.fontFamily;
+    var size = bodyStyle.fontSize;
+    if ((font && font !== state.pageFont) || (size && size !== state.pageFontSize)) {
+      state.pageFont = font || state.pageFont;
+      state.pageFontSize = size || state.pageFontSize;
+      var blocks = els.groups.querySelectorAll('.type-set');
+      for (var i = 0; i < blocks.length; i++) {
+        if (blocks[i]._set) applyTypeSet(blocks[i]);
+      }
+    }
+  }
+
+  function refreshRowsFor(name) {
+    var rows = document.querySelectorAll('[data-var="' + name + '"]');
+    for (var i = 0; i < rows.length; i++) refreshRow(rows[i]);
+  }
+
+  function buildRootBlock(vars) {
+    var lines = Object.keys(vars).sort().map(function (name) {
+      return '  ' + name + ': ' + vars[name] + ';';
+    });
+    return ':root {\n' + lines.join('\n') + '\n}';
+  }
+
+  // A family fetched from Google Fonts renders in this tool because this tool
+  // asked for it. The site has no such import, so exporting the variable alone
+  // would hand over CSS that silently falls back on the real page. The import
+  // goes with it, for the families the export actually uses.
+  function fontImportsFor(vars) {
+    var used = {};
+    Object.keys(vars).forEach(function (name) {
+      if (isFamilyValue(vars[name])) used[displayFamily(vars[name]).toLowerCase()] = true;
+    });
+
+    var lines = Object.keys(state.googleFonts)
+      .filter(function (key) {
+        return used[key];
+      })
+      .map(function (key) {
+        return "@import url('" + state.googleFonts[key].url + "');";
+      });
+
+    if (!lines.length) return '';
+    return (
+      '/* Fetched by the editor so the preview could render ' +
+      (lines.length === 1 ? 'this family' : 'these families') +
+      '. The site does not\n' +
+      '   load ' + (lines.length === 1 ? 'it' : 'them') + ' yet, so this import must go in too - the variables alone\n' +
+      '   will fall back to the previous face. */\n' +
+      lines.join('\n') + '\n\n'
+    );
+  }
+
+  // Designers do not search for "--scheme-colors-cta-tertiary-hover". They
+  // search for "button", or for "orange". Both have to hit.
+  var GLOSS = {
+    cta: 'Button', btn: 'Button', fg: 'Text', bg: 'Background', nav: 'Navigation',
+    hst: 'Table', tmc: 'Terms', cms: 'Content', faq: 'FAQ', toc: 'Contents',
+    bp: 'Breakpoint', img: 'Image', sub: 'Sub', tc: 'Terms', qa: 'Question'
+  };
+  var STATE_WORDS = ['default', 'hover', 'active', 'visited', 'disabled', 'focus', 'pressed', 'selected'];
+
+  // "Components Button Primary Text" is a namespace read aloud. The label has
+  // to name the thing and the property: "Button primary — text colour".
+  var PROP_WORDS = {
+    fontsize: 'text size', 'font-size': 'text size', size: 'text size',
+    lineheight: 'line spacing', 'line-height': 'line spacing',
+    fontweight: 'text weight', 'font-weight': 'text weight', weight: 'text weight',
+    fontfamily: 'font', 'font-family': 'font', family: 'font',
+    color: 'text colour', fg: 'text colour', text: 'text colour',
+    bg: 'background', background: 'background', surface: 'background',
+    border: 'border', radius: 'corner radius', shadow: 'shadow',
+    padding: 'padding', gap: 'gap', margin: 'margin', filter: 'filter'
+  };
+  var DEVICE_WORDS = { mobile: 'mobile', desktop: 'desktop', m: null, s: null };
+
+  function labelParts(name) {
+    var short = String(name)
+      .replace(/^--(v|scheme)-/, '')
+      .replace(/^(palette|colors|colours|widgets|typography|type|components)-/, '');
+    // camelCase in a token path is still two words.
+    short = short.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+    var parts = short.split('-').filter(Boolean);
+
+    var device = null;
+    var prop = null;
+    var state = null;
+
+    if (parts.length > 1 && STATE_WORDS.indexOf(parts[parts.length - 1]) !== -1) {
+      state = parts.pop();
+    }
+    // A property word is only a property when something else names the thing.
+    for (var i = parts.length - 1; i >= 1; i--) {
+      var joined = parts.slice(i).join('-');
+      if (PROP_WORDS[joined]) { prop = PROP_WORDS[joined]; parts = parts.slice(0, i); break; }
+      if (PROP_WORDS[parts[i]]) { prop = PROP_WORDS[parts[i]]; parts.splice(i, 1); break; }
+    }
+    for (var j = parts.length - 1; j >= 0; j--) {
+      if (Object.prototype.hasOwnProperty.call(DEVICE_WORDS, parts[j]) && DEVICE_WORDS[parts[j]]) {
+        device = DEVICE_WORDS[parts[j]];
+        parts.splice(j, 1);
+      }
+    }
+    var thing = parts.map(function (w) { return GLOSS[w] || w; }).join(' ');
+    return { thing: thing, prop: prop, device: device, state: state };
+  }
+
+  function humanLabel(name) {
+    var p = labelParts(name);
+    var text = p.thing || p.prop || name;
+    if (p.thing && p.prop) text = p.thing + ' — ' + p.prop;
+    if (p.state && p.state !== 'default') text += ' (' + p.state + ')';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  // Mobile and desktop are the same row seen twice. The canvas already has a
+  // device switch; this makes the list follow it instead of doubling.
+  function deviceOf(name) { return labelParts(name).device; }
+
+  function deviceTwin(name) {
+    var d = deviceOf(name);
+    if (!d) return null;
+    var other = d === 'mobile' ? 'desktop' : 'mobile';
+    var twin = name.replace(new RegExp('(^|[-_])' + d + '([-_]|$)', 'i'), '$1' + other + '$2');
+    return twin !== name && Object.prototype.hasOwnProperty.call(state.current, twin) ? twin : null;
+  }
+
+  // Groups a designer recognises, in a fixed order, rather than whatever the
+  // token namespace happens to be called.
+  var KINDS = ['Colour', 'Text', 'Spacing', 'Shape & depth', 'Effects', 'Other'];
+
+  function kindOf(name) {
+    var n = String(name).toLowerCase();
+    var v = String(state.current[name] || '').trim();
+    if (/shadow/.test(n)) return 'Shape & depth';
+    if (/radius|corner|border|stroke|outline/.test(n)) return 'Shape & depth';
+    if (/font|type|weight|line-?height|leading|letter|family|text-size/.test(n)) return 'Text';
+    if (/padding|margin|gap|space|spacing|inset/.test(n)) return 'Spacing';
+    if (/filter|opacity|blur|transition|duration|ease/.test(n)) return 'Effects';
+    if (/^#|^rgb|^hsl/.test(v) || /^\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*$/.test(v)) return 'Colour';
+    if (/colou?r|fg|bg|background|surface|fill|ink|palette|neutral|brand|accent/.test(n)) return 'Colour';
+    if (/^-?[\d.]+(px|rem|em|%|vh|vw)$/.test(v)) return 'Spacing';
+    return 'Other';
+  }
+
+
+
+  // A rough name for a colour, so "orange" and "green" are searchable terms.
+  // 0 is black, 1 is white. Used to decide what a swatch needs around it.
+  function relLuminance(hex) {
+    var m = /^#([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return 1;
+    var n = parseInt(m[1], 16);
+    var f = function (c) {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+  }
+
+  function colourWords(value) {
+    var m = /^#([0-9a-f]{6})$/i.exec(String(value || '').trim());
+    if (!m) return '';
+    var n = parseInt(m[1], 16);
+    var r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    var l = (max + min) / 2;
+    if (d < 0.08) return l > 0.9 ? 'white light' : (l < 0.12 ? 'black dark' : 'grey gray neutral');
+    var h = 0;
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+    if (h < 0) h += 360;
+    var names = [[15,'red'],[45,'orange'],[70,'yellow'],[160,'green'],[200,'teal cyan'],
+                 [250,'blue'],[290,'purple violet'],[335,'pink magenta'],[360,'red']];
+    for (var i = 0; i < names.length; i++) if (h <= names[i][0]) return names[i][1];
+    return '';
+  }
+
+  // Sets the scope and redraws. Kept separate from refreshScopeBar, which runs
+  // *inside* renderGroups: having that call back into setScope made the render
+  // re-enter itself and append every row twice, so a row could be read in its
+  // pre-edit state while a correct duplicate sat below it.
+  function setScope(scope) {
+    if (scope === 'selection' && !state.highlight.length) return;
+    state.scope = scope;
+    renderGroups();
+  }
+
+  // The two counts are the whole point of the control: they say how much each
+  // tab is hiding, so switching is an informed choice rather than a gamble.
+  function refreshScopeBar() {
+    var total = Object.keys(state.current).length;
+    var picked = state.highlight.length;
+    // Selection follows what is selected, not what it happens to theme. A
+    // wrapper with no scheme variables is still a selection: keying this off
+    // the variable count made climbing to a parent look like the selection had
+    // been thrown away, when the outline was still on the page.
+    var hasSelection = !!state.selected;
+    // Normalises the scope without redrawing - renderGroups is mid-flight.
+    if (!hasSelection && state.scope === 'selection') state.scope = 'all';
+
+    els.scopeAllCount.textContent = total;
+    els.scopeSelCount.textContent = picked;
+    els.scopeSelBtn.disabled = !hasSelection;
+    els.scopeSelBtn.classList.toggle('active', state.scope === 'selection');
+    els.scopeAllBtn.classList.toggle('active', state.scope === 'all');
+
+    els.statusChip.textContent = 'ⓘ ' + total + ' variables';
+
+    var dirty = Object.keys(state.edits).length;
+    els.dirtyChip.textContent = dirty + ' unsaved';
+    els.dirtyChip.classList.toggle('hidden', !dirty);
+    if (!dirty && state.onlyDirty) {
+      state.onlyDirty = false;
+      els.dirtyChip.classList.remove('on');
+    }
+  }
+
+  // A selection is a place on the page, so it is drawn as one. Every step is
+  // clickable, which is also the answer to "how do I style the parent".
+  // The card answers "what am I editing" without the list having to. Its
+  // swatch is the element's own background, so it reads as a thumbnail of the
+  // thing rather than a generic icon.
+  function renderSelCard(el, direct) {
+    var win = el.ownerDocument.defaultView;
+    var cs = win.getComputedStyle(el);
+    var bg = cs.backgroundColor;
+    var opaque = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+    els.selCardSwatch.style.background = opaque ? bg : cs.color;
+    els.selCardSwatch.style.border = opaque ? '' : '2px solid ' + cs.color;
+    els.selCardName.textContent = friendlyName(el);
+    els.selCardSel.textContent = describeElement(el);
+    els.selCardSel.title = describeElement(el);
+    els.selCard.classList.add('on');
+  }
+
+  // What a person would call it, before what the markup calls it.
+  function friendlyName(el) {
+    var tag = el.tagName.toLowerCase();
+    var role = el.getAttribute('role');
+    var cls = (el.getAttribute('class') || '').toLowerCase();
+    var text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    var kind =
+      tag === 'button' || role === 'button' || /(^|[^a-z])(btn|button|cta)([^a-z]|$)/.test(cls) ? 'Button' :
+      tag === 'a' ? 'Link' :
+      /^h[1-6]$/.test(tag) ? 'Heading ' + tag.slice(1) :
+      tag === 'p' ? 'Paragraph' :
+      tag === 'img' ? 'Image' :
+      tag === 'input' || tag === 'select' || tag === 'textarea' ? 'Field' :
+      tag === 'nav' || /nav|menu/.test(cls) ? 'Navigation' :
+      tag === 'header' ? 'Header' :
+      tag === 'footer' ? 'Footer' :
+      /card/.test(cls) ? 'Card' :
+      'Element';
+    if (text && text.length <= 24 && kind !== 'Element') return kind + ' — “' + text + '”';
+    return kind;
+  }
+
+  function renderCrumbs(el) {
+    els.crumbs.innerHTML = '';
+    if (!el) return;
+    var chain = [];
+    for (var node = el; node && node.nodeType === 1; node = node.parentElement) {
+      chain.unshift(node);
+      if (node.tagName === 'BODY') break;
+    }
+    // A framework page nests twenty wrappers deep. The useful part of the
+    // trail is the end of it, so the middle is dropped rather than wrapped.
+    var elided = 0;
+    if (chain.length > 5) {
+      elided = chain.length - 5;
+      chain = [chain[0]].concat(chain.slice(chain.length - 4));
+    }
+    chain.forEach(function (node, i) {
+      if (i) {
+        var sep = document.createElement('span');
+        sep.className = 'sep';
+        sep.textContent = '›';
+        els.crumbs.appendChild(sep);
+      }
+      if (elided && i === 1) {
+        var gap = document.createElement('span');
+        gap.className = 'sep';
+        gap.textContent = '… ' + elided + ' more ›';
+        gap.title = elided + ' wrapper elements not shown';
+        els.crumbs.appendChild(gap);
+      }
+      var btn = document.createElement('button');
+      btn.textContent = shortLabel(node);
+      btn.title = describeElement(node);
+      if (node === el) {
+        btn.className = 'here';
+        btn.disabled = true;
+      } else {
+        btn.addEventListener('click', function () { selectElement(node); });
+      }
+      els.crumbs.appendChild(btn);
+    });
+  }
+
+  function renderGroups() {
+    var filter = els.filterInput.value.trim().toLowerCase();
+    refreshScopeBar();
+    els.emptyPick.classList.toggle('on', !state.selected && !!Object.keys(state.current).length);
+
+    var all = Object.keys(state.current).sort();
+    // Scope first, then the text filter: narrowing to a selection and then
+    // searching inside it is the order people actually work in.
+    if (state.scope === 'selection' && state.highlight.length) {
+      all = all.filter(function (name) { return state.highlight.indexOf(name) !== -1; });
+    }
+    if (state.onlyDirty) {
+      all = all.filter(function (name) {
+        return Object.prototype.hasOwnProperty.call(state.edits, name);
+      });
+    }
+    var visible = all.filter(function (name) {
+      if (!filter) return true;
+      // Search what the row says, not only what the variable is called, so
+      // "button" and "orange" find things a namespace search would miss.
+      return (name + ' ' + humanLabel(name) + ' ' + (state.current[name] || '') + ' ' +
+              colourWords(state.current[name])).toLowerCase().indexOf(filter) !== -1;
+    });
+
+    els.groups.innerHTML = '';
+
+    if (!visible.length) {
+      var empty = document.createElement('div');
+      empty.style.cssText = 'padding:16px;color:var(--panel-dim);font-size:12px;';
+      empty.textContent = all.length
+        ? 'Nothing matches your search.'
+        : (state.scope === 'selection'
+            ? 'Nothing on this element is themed — use ↑ to check the one around it.'
+            : (state.onlyDirty ? 'Nothing changed yet.' : 'Load a page to see its scheme variables.'));
+      els.groups.appendChild(empty);
+      return;
+    }
+
+    // Typography variables are shown as sets with a rendered specimen, so they
+    // are pulled out of the plain family grouping first. Sets are built from
+    // every variable, not just the visible ones, so a specimen keeps rendering
+    // with its real size and weight while a filter narrows which members are
+    // listed for editing.
+    var styles = typographyStyles();
+
+    var claimed = {};
+    styles.forEach(function (style) {
+      style.list.forEach(function (variant) {
+        Object.keys(variant.props).forEach(function (p) {
+          claimed[variant.props[p]] = true;
+        });
+      });
+    });
+
+    var groups = {};
+    var order = [];
+    visible.forEach(function (name) {
+      if (claimed[name]) return;
+      // The same row for the other device is not a second row. The canvas
+      // device switch decides which of the pair is on screen.
+      var d = deviceOf(name);
+      if (d && d !== state.device && deviceTwin(name)) return;
+      var fam = kindOf(name);
+      if (!groups[fam]) {
+        groups[fam] = [];
+        order.push(fam);
+      }
+      groups[fam].push(name);
+    });
+
+    order.sort(function (a, b) { return KINDS.indexOf(a) - KINDS.indexOf(b); });
+    var openedOne = false;
+    var textRows = null;
+    order.forEach(function (fam) {
+      var groupEl = document.createElement('div');
+      groupEl.className = 'group';
+      // Only the first group is open: a designer scans headings, then opens
+      // the one they want, rather than scrolling past 185 rows to find it.
+      if (openedOne) groupEl.classList.add('collapsed');
+      openedOne = true;
+
+      var header = document.createElement('div');
+      header.className = 'group-header';
+      header.innerHTML = '<span class="group-label">' + fam + '</span><span class="group-count">' + groups[fam].length + '</span>';
+      header.addEventListener('click', function () {
+        groupEl.classList.toggle('collapsed');
+      });
+      groupEl.appendChild(header);
+
+      var rowsEl = document.createElement('div');
+      rowsEl.className = 'group-rows';
+      groups[fam].forEach(function (name) {
+        rowsEl.appendChild(buildRow(name));
+      });
+
+      groupEl.appendChild(rowsEl);
+      els.groups.appendChild(groupEl);
+      if (fam === 'Text') textRows = rowsEl;
+    });
+
+    // Type specimens are text, so they belong in the Text group rather than
+    // reintroducing a namespace heading beside the intent ones.
+    if (styles.length) renderTypeStyles(styles, visible, textRows);
+  }
+
+  function memberNames(set) {
+    return Object.keys(set.props).map(function (p) {
+      return set.props[p];
+    });
+  }
+
+  // The specimen is the content here. Each style shows its sizes as rendered
+  // lines of text; the variables that produce them are collapsed behind the
+  // specimen and revealed on click, so the type leads and the tokens follow.
+  function renderTypeStyles(styles, visible, into) {
+    var groupEl = null;
+    var rowsEl = into;
+
+    if (!rowsEl) {
+      groupEl = document.createElement('div');
+      groupEl.className = 'group';
+
+      var header = document.createElement('div');
+      header.className = 'group-header';
+      header.innerHTML = '<span class=\'group-label\'>Text</span><span class=\'group-count\'>' + styles.length + '</span>';
+      header.addEventListener('click', function () {
+        groupEl.classList.toggle('collapsed');
+      });
+      groupEl.appendChild(header);
+
+      rowsEl = document.createElement('div');
+      rowsEl.className = 'group-rows';
+      rowsEl.style.padding = '0';
+    }
+
+    styles.forEach(function (style) {
+      var styleEl = document.createElement('div');
+      styleEl.className = 'type-style';
+
+      var name = document.createElement('div');
+      name.className = 'type-style-name';
+      name.textContent = style.style;
+      styleEl.appendChild(name);
+
+      style.list.forEach(function (variant) {
+        var members = Object.keys(variant.props).map(function (p) {
+          return variant.props[p];
+        });
+        if (!members.some(function (n) { return visible.indexOf(n) !== -1; })) return;
+
+        // Carries the class and _set shape refreshTypeSets looks for, so an
+        // edit updates this specimen without a rebuild.
+        var block = document.createElement('div');
+        block.className = 'type-set type-variant';
+
+        var head = document.createElement('div');
+        head.className = 'type-head';
+
+        var chip = document.createElement('span');
+        chip.className = 'bp-chip';
+        chip.textContent = bpLabel(variant.bp);
+        chip.title = variant.bp || 'no breakpoint suffix';
+        head.appendChild(chip);
+
+        var spec = document.createElement('span');
+        spec.className = 'type-spec';
+        head.appendChild(spec);
+        styleEl.appendChild(head);
+
+        var specimen = document.createElement('p');
+        specimen.className = 'type-specimen';
+        specimen.textContent = SPECIMEN_TEXT;
+        specimen.title = 'Click to collapse or show these variables';
+        styleEl.appendChild(specimen);
+
+        var vars = document.createElement('div');
+        vars.className = 'type-vars';
+        Object.keys(variant.props).sort().forEach(function (prop) {
+          var n = variant.props[prop];
+          if (visible.indexOf(n) === -1) return;
+          vars.appendChild(buildRow(n, prop));
+        });
+        styleEl.appendChild(vars);
+
+        // Collapsed to start so the specimens read as a type scale rather than
+        // a list of tokens; the caret says they open, and they stay fully
+        // editable once they do.
+        vars.classList.add('collapsed');
+        head.classList.add('collapsed');
+
+        var toggle = function () {
+          var collapsed = vars.classList.toggle('collapsed');
+          head.classList.toggle('collapsed', collapsed);
+        };
+        head.addEventListener('click', toggle);
+        specimen.addEventListener('click', toggle);
+
+        block._set = variant;
+        block._spec = spec;
+        block._specimen = specimen;
+        applyTypeSet(block);
+        // Kept in the tree so refreshTypeSets can find it, without adding a
+        // visible element of its own.
+        block.style.display = 'none';
+        styleEl.appendChild(block);
+      });
+
+      rowsEl.appendChild(styleEl);
+    });
+
+    // Only when this section made its own group; otherwise the specimens have
+    // already been appended into the Text group's rows.
+    if (groupEl) {
+      groupEl.appendChild(rowsEl);
+      els.groups.appendChild(groupEl);
+    }
+  }
+
+  // One row control per variable, used by both the main list and the
+  // inspector panel, so a variable is edited the same way wherever it shows.
+  function buildRow(name, titleOverride) {
+    var row = document.createElement('div');
+    row.className = 'row';
+    row.setAttribute('data-var', name);
+    if (state.highlight.indexOf(name) !== -1) row.classList.add('highlight');
+
+    var swatch = document.createElement('div');
+    swatch.className = 'swatch';
+
+    var main = document.createElement('div');
+    main.className = 'row-main';
+
+    var label = document.createElement('div');
+    label.className = 'name';
+
+    // The text lives in its own span so refreshing it cannot wipe the badge
+    // beside it.
+    var nameText = document.createElement('span');
+    nameText.className = 'name-text';
+    label.appendChild(nameText);
+
+    var use = document.createElement('span');
+    use.className = 'use hidden';
+    label.appendChild(use);
+
+    var warn = document.createElement('span');
+    warn.className = 'use warn hidden';
+    warn.textContent = 'not loaded';
+    label.appendChild(warn);
+
+    // The device is a chip, not a word buried in the label.
+    var dev = deviceOf(name);
+    if (dev && deviceTwin(name)) {
+      var chip = document.createElement('span');
+      chip.className = 'device-chip';
+      chip.textContent = dev;
+      chip.title = 'This value applies on ' + dev + '. Switch the viewport above to edit the other one.';
+      label.appendChild(chip);
+    }
+
+    var loadBtn = document.createElement('button');
+    loadBtn.className = 'loadfont hidden';
+    loadBtn.textContent = 'Load from Google';
+    loadBtn.title =
+      'Fetch this family from Google Fonts so the preview can render it. ' +
+      'Preview only — the site still needs the @import, which Export CSS includes.';
+    loadBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      loadGoogleFont(displayFamily(state.current[name]));
+    });
+    label.appendChild(loadBtn);
+    main.appendChild(label);
+
+    // The complete name, always shown rather than truncated, so it can be read
+    // and copied without hovering.
+    var varLine = document.createElement('div');
+    varLine.className = 'sv-var';
+    varLine.textContent = name;
+    varLine.title = 'Click to copy this variable name';
+    varLine.style.cursor = 'pointer';
+    varLine.addEventListener('click', function () {
+      copyVarName(name);
+    });
+    main.appendChild(varLine);
+
+    var input = document.createElement('input');
+    input.className = 'value';
+    input.type = 'text';
+    input.addEventListener('change', function () {
+      updateValue(name, input.value);
+    });
+
+    var resetBtn = document.createElement('button');
+    resetBtn.className = 'reset';
+    resetBtn.textContent = '↺';
+    resetBtn.title = 'Reset to original value';
+    resetBtn.addEventListener('click', function () {
+      updateValue(name, state.original[name]);
+    });
+
+    row.appendChild(swatch);
+    row.appendChild(main);
+    row.appendChild(input);
+    row.appendChild(resetBtn);
+
+    row._varName = name;
+    row._nameInput = input;
+    row._nameSwatch = swatch;
+    row._resetBtn = resetBtn;
+    row._use = use;
+    row._warn = warn;
+    row._loadBtn = loadBtn;
+    row._nameText = nameText;
+    row._title = titleOverride || '';
+
+    refreshRow(row);
+    return row;
+  }
+
+  // The mockup's label: just the segment that names this token. The full
+  // variable name is shown on its own line beneath, so nothing is hidden and
+  // two tokens sharing a last segment are still told apart by that line.
+  function lastSegment(name) {
+    // Superseded by humanLabel for row titles; kept for the type specimens,
+    // which name a style rather than a token.
+    return lastSegmentRaw(name);
+  }
+
+  function lastSegmentRaw(name) {
+    var short = name.replace(/^--scheme-/, '');
+    var parts = short.split('-');
+    return parts.length > 1 ? parts[parts.length - 1] : short;
+  }
+
+  // How many declarations in the captured CSS reference each variable. A
+  // scheme normally defines more tokens than the page uses - a whole shelf of
+  // font families where the design only wires up two - and editing one of the
+  // rest changes nothing on screen. Without a count that looks like the editor
+  // failing rather than the variable being unused.
+  function usageCounts() {
+    if (state.usage) return state.usage;
+    var doc = previewDoc();
+    if (!doc) return null;
+
+    var counts = {};
+    schemeRuleIndex().forEach(function (rule) {
+      if (rule.literal) return;
+      rule.vars.forEach(function (name) {
+        counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    state.usage = counts;
+    return counts;
+  }
+
+  function refreshAllRows() {
+    var rows = document.querySelectorAll('.row[data-var]');
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i]._varName) refreshRow(rows[i]);
+    }
+    updateLoadAllButton();
+  }
+
+  function refreshRow(row) {
+    var name = row._varName;
+    var value = state.current[name] || '';
+    var changed = value !== state.original[name];
+
+    // Only once the preview has rendered is there any CSS to count against;
+    // until then the badge stays hidden rather than claiming nothing uses it.
+    var counts = usageCounts();
+    if (row._use) {
+      var used = counts ? counts[name] || 0 : null;
+      // "Unused" is the wrong word when a dozen other tokens carry the same
+      // colour. The general colour of a scheme built this way is referenced by
+      // nothing in the CSS - the CMS resolved it into each component token
+      // before the CSS existed - yet it is plainly the colour in use, and
+      // calling that unused reads as the tool being wrong about the page.
+      var shared = used === 0 ? sharing(value, name).length : 0;
+      // The count is developer telemetry: useful, but not worth a badge on
+      // every one of 185 rows. It moves to the row's tooltip.
+      row._nameText.title = name +
+        (used === null ? '' : ' — used in ' + (used === 0 ? (shared ? '0 rules, ' + shared + ' tokens share it' : 'no rules') : used + ' place' + (used === 1 ? '' : 's')));
+      row._use.classList.toggle('hidden', used === null);
+      row._use.classList.toggle('unused', used === 0 && !shared);
+      row._use.textContent =
+        used === 0 ? (shared ? 'shared ×' + shared : 'unused') : used + '×';
+      row._use.title =
+        used === 0
+          ? shared
+            ? 'No rule in the captured CSS references this variable — this scheme writes the ' +
+              'colour into each token instead. ' + shared + ' other token' +
+              (shared === 1 ? '' : 's') + ' hold the same value; change this one and the ' +
+              'status bar offers to carry it across to them.'
+            : 'No rule in the captured CSS references this variable, and no other token holds ' +
+              'its value, so editing it will not change the page.'
+          : used + ' declaration' + (used === 1 ? '' : 's') + ' reference this variable';
+    }
+
+    row._nameInput.value = value;
+    row._nameInput.classList.toggle('changed', changed);
+    row._resetBtn.classList.toggle('visible', changed);
+
+    var swatch = row._nameSwatch;
+    var picker = swatch.querySelector('input[type="color"]');
+    var fill = swatch.querySelector('.fill');
+    if (!fill) {
+      fill = document.createElement('span');
+      fill.className = 'fill';
+      swatch.insertBefore(fill, swatch.firstChild);
+    }
+
+    var paint = colorCss(value);
+    row._triplet = isTriplet(value);
+
+    // Families get the page's own faces as suggestions; everything else stays
+    // a plain field, so a size or a weight is not offered a list of fonts.
+    var family = isFamilyValue(value) || /font-?family/i.test(name);
+    if (family) {
+      row._nameInput.setAttribute('list', 'fontFamilies');
+      row._nameInput.title = 'Families used by this page — type any CSS value';
+    } else {
+      row._nameInput.removeAttribute('list');
+      row._nameInput.removeAttribute('title');
+    }
+
+    // A font row is named after the font it holds, not after its token. The
+    // token named the slot, so `--font-lato` still read "lato" after being
+    // changed to Tahoma — the one label in the panel that is supposed to
+    // answer "which font is this?" was answering with a stale one. The name is
+    // drawn in the face itself, and the field with it, so the change is
+    // legible rather than only spelled out. The full variable name stays on
+    // the line beneath, which is what tells two font slots apart.
+    if (family && value) {
+      if (picker) swatch.removeChild(picker);
+      row._nameText.textContent = displayFamily(value);
+      row._nameText.style.fontFamily = value;
+      row._nameInput.style.fontFamily = value;
+      row._nameSwatch.classList.add('font');
+      row._nameSwatch.style.display = '';
+      var chip = row._nameSwatch.querySelector('.font-chip');
+      if (!chip) {
+        chip = document.createElement('span');
+        chip.className = 'font-chip';
+        chip.textContent = 'Aa';
+        row._nameSwatch.appendChild(chip);
+      }
+      chip.style.fontFamily = value;
+      if (fill) fill.style.display = 'none';
+      row._nameText.title = row._varName + ' — currently ' + value;
+      markFontAvailability(row, value);
+      return;
+    }
+
+    if (row._warn) row._warn.classList.add('hidden');
+
+    row._nameText.textContent = row._title || humanLabel(name);
+    row._nameText.style.fontFamily = '';
+    row._nameInput.style.fontFamily = '';
+    row._nameSwatch.classList.remove('font');
+    var oldChip = row._nameSwatch.querySelector('.font-chip');
+    if (oldChip) row._nameSwatch.removeChild(oldChip);
+    if (fill) fill.style.display = '';
+
+    if (paint) {
+      fill.style.background = paint;
+      swatch.style.display = '';
+      var hex = toHexColor(paint);
+      // A near-black swatch on a near-black panel had a 13%-white ring, which
+      // is no edge at all: the colour was there and unfindable. The ring is
+      // now chosen against the swatch's own lightness, so black and white are
+      // both visible on either backdrop.
+      swatch.style.boxShadow = hex && relLuminance(hex) < 0.28
+        ? '0 0 0 1px rgba(255,255,255,0.55), 0 0 0 2px rgba(0,0,0,0.35)'
+        : '0 0 0 1px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.22)';
+      if (hex && !picker) {
+        picker = document.createElement('input');
+        picker.type = 'color';
+        picker.addEventListener('input', function () {
+          updateValue(name, row._triplet ? hexToTriplet(picker.value) : picker.value);
+        });
+        swatch.appendChild(picker);
+      }
+      // Leave the picker's own value alone while it is being dragged,
+      // otherwise reassigning it mid-drag closes the OS colour dialog.
+      if (picker && hex && document.activeElement !== picker) picker.value = hex;
+      if (picker && !hex) swatch.removeChild(picker);
+    } else {
+      if (picker) swatch.removeChild(picker);
+      // Not a colour: drop the square entirely rather than leave an empty
+      // checkerboard implying one.
+      fill.style.background = 'transparent';
+      swatch.style.display = 'none';
+    }
+  }
+
+  function updateValue(name, value) {
+    var before = state.current[name];
+
+    // Back to the captured value means there is no edit any more, so the
+    // authored declaration takes over again and dependents follow it.
+    if (value === state.original[name]) delete state.edits[name];
+    else state.edits[name] = value;
+
+    state.current[name] = value;
+    state.valueGroups = null;
+    // Editing a token directly takes it out of any colour's orbit.
+    delete state.linked[name];
+    applyVar(name);
+
+    var followed = applyRoleCascade(name, before, value);
+    // Whatever else held that colour but is not named for it stays an offer.
+    offerCascade(name, before, value);
+
+    // The same variable can be on screen twice (list + inspector); keep
+    // every instance showing the same value.
+    refreshRowsFor(name);
+    refreshTypeSets(name);
+    syncResolved();
+
+    if (followed) {
+      setStatus(
+        lastSegment(name) + ' → ' + value + ' · ' + followed + ' ' + roleOf(name) +
+        ' token' + (followed === 1 ? '' : 's') + ' followed'
+      );
+    }
+  }
+
+  // Tokens grouped by the colour they currently hold, so "what else is this
+  // orange?" is one lookup rather than a scan per row.
+  function colorKey(value) {
+    var paint = colorCss(value);
+    if (!paint) return '';
+    return String(toHexColor(paint) || paint).toLowerCase();
+  }
+
+  function valueGroups() {
+    if (state.valueGroups) return state.valueGroups;
+    var map = {};
+    Object.keys(state.current).forEach(function (name) {
+      var key = colorKey(state.current[name]);
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      map[key].push(name);
+    });
+    state.valueGroups = map;
+    return map;
+  }
+
+  function sharing(value, exclude) {
+    var group = valueGroups()[colorKey(value)] || [];
+    return group.filter(function (name) {
+      return name !== exclude;
+    });
+  }
+
+  // A scheme's main colours: --scheme-colors-color-primary and its siblings,
+  // the ones a designer thinks of as "the brand colour" rather than as one
+  // component's setting.
+  var MAIN_COLOR = /^--scheme-colors?-color-([A-Za-z0-9]+)$/;
+
+  function roleOf(name) {
+    var match = String(name).match(MAIN_COLOR);
+    return match ? match[1].toLowerCase() : '';
+  }
+
+  // The words in a variable name, with camelCase split apart, so
+  // `--scheme-colors-cta-primary-default` and `--scheme-colors-background-primaryDark`
+  // both read as carrying "primary".
+  function nameWords(name) {
+    return String(name)
+      .replace(/^--/, '')
+      .split('-')
+      .reduce(function (words, part) {
+        return words.concat(
+          part.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/)
+        );
+      }, [])
+      .filter(Boolean);
+  }
+
+  function namedFor(role, name) {
+    return nameWords(name).indexOf(role) !== -1;
+  }
+
+  // Editing a main colour moves the tokens that are plainly the same colour by
+  // another name: `--scheme-colors-cta-primary-default` carries "primary" and
+  // holds the identical value, so it is the brand colour restated, not a
+  // coincidence. Both tests have to pass. The name alone would drag
+  // `background-primary` (a near-white) along with the brand orange; the value
+  // alone would drag every unrelated token that happens to be #FFFFFF.
+  //
+  // Shades derived from the colour rather than equal to it - a hover #FF5421
+  // against a default #FF6B00 - are deliberately left alone: nothing in the
+  // capture says how that shade was computed, and guessing at it would be
+  // inventing a relationship the CSS never stated.
+  function applyRoleCascade(name, before, value) {
+    var role = roleOf(name);
+    if (!role || before === value) return 0;
+    if (!colorCss(before) || !colorCss(value)) return 0;
+
+    var followers = sharing(before, name).filter(function (other) {
+      // Already tied to this colour - by an earlier step of the same drag, or
+      // by accepting the offer below. Keep it moving.
+      if (state.linked[other] === role) return true;
+      if (!namedFor(role, other)) return false;
+      // Anything else somebody set by hand is their decision, not ours.
+      return !Object.prototype.hasOwnProperty.call(state.edits, other);
+    });
+
+    followers.forEach(function (other) {
+      state.linked[other] = role;
+      state.edits[other] = value;
+      state.current[other] = value;
+      applyVar(other);
+      refreshRowsFor(other);
+      refreshTypeSets(other);
+    });
+
+    if (followers.length) state.valueGroups = null;
+    return followers.length;
+  }
+
+  // Whether a change to one colour can be carried across the tokens that held
+  // the same one.
+  //
+  // A scheme like this defines --scheme-colors-color-primary and then writes
+  // the same literal into every CTA and component token rather than
+  // `var(--scheme-colors-color-primary)`: the derivation happened in the CMS,
+  // before the CSS existed. So the general colour genuinely has no reference
+  // anywhere in the page's CSS, and no amount of CSS cascading can make
+  // editing it move the buttons. Where a var() chain does exist it already
+  // follows on its own; this covers the case where the link was flattened
+  // away, which is most of them.
+  //
+  // Offered rather than applied: a value can be shared by coincidence -
+  // #FFFFFF is every white in the scheme - and silently repainting thirty
+  // tokens because two happened to match would be worse than not offering.
+  function offerCascade(name, before, value) {
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+
+    if (!before || !value || before === value) return;
+    if (!colorCss(before) || !colorCss(value)) return;
+
+    var matches = sharing(before, name).filter(function (other) {
+      // Somebody already gave this token a value of its own; that is a
+      // decision, not something to overwrite.
+      return !Object.prototype.hasOwnProperty.call(state.edits, other);
+    });
+    if (!matches.length) return;
+
+    state.cascade = { names: matches, value: value, from: before, role: roleOf(name) };
+    els.cascadeBtn.textContent =
+      'Also update ' + matches.length +
+      (matches.length === 1 ? ' token that was ' : ' tokens that were ') + before;
+    els.cascadeBtn.title =
+      'Set these to ' + value + ' as well:\n' +
+      matches.slice(0, 15).join('\n') +
+      (matches.length > 15 ? '\n… and ' + (matches.length - 15) + ' more' : '') +
+      '\n\nReset all undoes it.';
+    els.cascadeBtn.classList.remove('hidden');
+  }
+
+  function applyCascade() {
+    var pending = state.cascade;
+    if (!pending) return;
+
+    pending.names.forEach(function (other) {
+      // Saying yes once ties them to the colour, so the next edit - the next
+      // step of a picker drag - carries them along without asking again.
+      if (pending.role) state.linked[other] = pending.role;
+      state.edits[other] = pending.value;
+      state.current[other] = pending.value;
+      applyVar(other);
+    });
+
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+    refreshAllRows();
+    pending.names.forEach(refreshTypeSets);
+    syncResolved();
+    setStatus(
+      pending.names.length + ' more token' + (pending.names.length === 1 ? '' : 's') +
+      ' set to ' + pending.value + ' — Reset all undoes it'
+    );
+  }
+
+  function setBackdrop(backdrop) {
+    state.backdrop = backdrop;
+    els.editorPanel.classList.toggle('light', backdrop === 'light');
+    els.lightBackdropBtn.classList.toggle('active', backdrop === 'light');
+    els.darkBackdropBtn.classList.toggle('active', backdrop === 'dark');
+  }
+
+  function copyVarName(name) {
+    var write = navigator.clipboard && navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(name)
+      : Promise.reject();
+    write.catch(function () {
+      var ta = document.createElement('textarea');
+      ta.value = name;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (err) { /* nothing else to try */ }
+      document.body.removeChild(ta);
+    });
+
+    els.svCopied.textContent = 'Copied ' + name;
+    els.svCopied.classList.add('show');
+    clearTimeout(state.copiedTimer);
+    state.copiedTimer = setTimeout(function () {
+      els.svCopied.classList.remove('show');
+    }, 1400);
+  }
+
+  // Gathers `--scheme-typography-<stem>-<prop>` families back into one entry
+  // per stem, so a specimen can be rendered with the real size, weight and
+  // line height together instead of three unrelated numbers.
+  // A breakpoint suffix names a variant of one style, not a style of its own,
+  // so it is split off: `buttonBig-fontSize-desktop` and
+  // `buttonBig-fontSize-mobile` are two variants of buttonBig rather than two
+  // unrelated tokens. That is what lets one style show its sizes together.
+  // The trailing digits matter: real schemes carry several steps within one
+  // breakpoint (`-s`, `-s2`, `-s3`, `-m2`, `-m3`). Without them only the bare
+  // suffix is recognised as a breakpoint, so `normal-fontSize-s2` folds the
+  // number into the stem and invents a style called "normal-s2" sitting apart
+  // from the very scale it belongs to.
+  var BREAKPOINT = /^(desktop|tablet|mobile|xxl|xl|lg|md|sm|xs|d|t|m|l|s)\d*$/i;
+
+  // A chip has room for a letter, not for "desktop", but "S" alone cannot tell
+  // s from s2 and s3 - so the step number is kept and short names shown whole.
+  function bpLabel(bp) {
+    if (!bp) return '·';
+    if (bp.length <= 3) return bp.toUpperCase();
+    return bp.charAt(0).toUpperCase() + (bp.match(/\d+$/) || [''])[0];
+  }
+
+  function parseTypeVar(name) {
+    // Only the scheme's own typography tokens form specimens. A page token
+    // such as --font-weight-bold contains "font-weight" too, and reading it as
+    // a typography set would conjure a style called "bold" out of one weight.
+    if (name.indexOf('--scheme-') !== 0) return null;
+
+    for (var i = 0; i < TYPE_PROPS.length; i++) {
+      var entry = TYPE_PROPS[i];
+      if (!entry.re.test(name)) continue;
+
+      var rest = name
+        .replace(entry.re, '')
+        .replace(/^--scheme-/, '')
+        .replace(/^(typography|fonts|font)-/, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      if (!rest) return null;
+
+      var parts = rest.split('-');
+      var bp = '';
+      if (parts.length > 1 && BREAKPOINT.test(parts[parts.length - 1])) bp = parts.pop();
+      return { style: parts.join('-'), bp: bp, prop: entry.prop };
+    }
+    return null;
+  }
+
+  function typographyStyles() {
+    var styles = {};
+
+    Object.keys(state.current).forEach(function (name) {
+      var parsed = parseTypeVar(name);
+      if (!parsed || !parsed.style) return;
+
+      var style = styles[parsed.style];
+      if (!style) style = styles[parsed.style] = { style: parsed.style, variants: {} };
+
+      var variant = style.variants[parsed.bp];
+      if (!variant) variant = style.variants[parsed.bp] = { bp: parsed.bp, props: {} };
+
+      if (!variant.props[parsed.prop]) variant.props[parsed.prop] = name;
+    });
+
+    return Object.keys(styles).sort(compareStyleNames).map(function (key) {
+      var style = styles[key];
+      // Largest first, so a style reads as a scale rather than an arbitrary
+      // list of breakpoints.
+      style.list = Object.keys(style.variants)
+        .map(function (bp) { return style.variants[bp]; })
+        .sort(function (a, b) { return sizeOf(b) - sizeOf(a); });
+      return style;
+    });
+  }
+
+  function sizeOf(variant) {
+    var name = variant.props['font-size'];
+    var value = name ? state.current[name] : '';
+    var px = parseFloat(value);
+    return isNaN(px) ? 0 : px;
+  }
+
+  // h1..h6 in numeric order ahead of everything else, which is how a type
+  // scale is normally read.
+  function compareStyleNames(a, b) {
+    var ha = a.match(/^h([1-6])$/i);
+    var hb = b.match(/^h([1-6])$/i);
+    if (ha && hb) return Number(ha[1]) - Number(hb[1]);
+    if (ha) return -1;
+    if (hb) return 1;
+    return a.localeCompare(b);
+  }
+
+  function applyTypeSet(block) {
+    var props = block._set.props;
+    var value = function (prop) {
+      return props[prop] ? state.current[props[prop]] : '';
+    };
+
+    var specimen = block._specimen;
+    // Both fallbacks are the captured page's own body values, so a specimen
+    // never renders at a size or in a face this app invented. Where the page
+    // gave nothing, nothing is set.
+    specimen.style.fontSize = value('font-size') || state.pageFontSize || '';
+    specimen.style.lineHeight = value('line-height');
+    specimen.style.fontWeight = value('font-weight');
+    specimen.style.fontFamily = value('font-family') || state.pageFont || '';
+    specimen.style.letterSpacing = value('letter-spacing');
+    specimen.style.textTransform = value('text-transform');
+    specimen.style.fontStyle = value('font-style');
+
+    block._spec.textContent = ['font-size', 'line-height', 'font-weight']
+      .map(value)
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  // Keeps a specimen in step with an edit without rebuilding the whole list,
+  // so dragging a colour picker stays smooth.
+  function refreshTypeSets(name) {
+    var blocks = els.groups.querySelectorAll('.type-set');
+    for (var i = 0; i < blocks.length; i++) {
+      var props = blocks[i]._set && blocks[i]._set.props;
+      if (!props) continue;
+      var owns = Object.keys(props).some(function (p) {
+        return props[p] === name;
+      });
+      if (owns) applyTypeSet(blocks[i]);
+    }
+  }
+
+  function setDevice(device) {
+    if (state.device === device) return;
+    state.device = device;
+
+    els.desktopBtn.classList.toggle('active', device === 'desktop');
+    els.mobileBtn.classList.toggle('active', device === 'mobile');
+    els.previewWrap.classList.toggle('mobile', device === 'mobile');
+
+    // Resizing alone re-runs the page's media queries, which is the part that
+    // matters for scheme work. Markup and asset choices were fixed at capture
+    // time by the device's user-agent though, so say when those no longer
+    // match rather than presenting a half-mobile view as the real thing.
+    if (state.pageUrl && state.capturedDevice !== device) {
+      setStatus('Showing ' + device + ' width · captured as ' + state.capturedDevice +
+        ' — press ↻ Recapture for true ' + device + ' markup');
+    } else if (state.pageUrl) {
+      setStatus(device + ' view');
+    }
+  }
+
+  function previewDoc() {
+    try {
+      return els.preview.contentDocument;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function setInspecting(on) {
+    state.inspecting = on;
+    els.inspectBtn.classList.toggle('on', on);
+    els.editorPanel.classList.toggle('picking', on);
+    els.inspectBtn.classList.toggle('active', on);
+    attachPreviewHandlers();
+    if (on) {
+      setStatus('Inspect mode: click any element in the preview');
+    } else {
+      hideOverlay();
+      closeInspector();
+      setStatus('Inspect off · clicking a link still loads that page');
+    }
+  }
+
+  // The click handler is attached whatever the inspect state, because the
+  // captured body contains real <a href> links and a sandboxed iframe is
+  // still allowed to navigate itself. If it does, it loads the live site
+  // cross-origin: the preview then shows a page this app cannot read and
+  // does not know it is on, so state.pageUrl still names the previous one
+  // and "recapture" appears to jump back. Every link click therefore has to
+  // be intercepted and routed through a capture instead.
+  function attachPreviewHandlers() {
+    var doc = previewDoc();
+    if (!doc || !doc.body) return false;
+
+    doc.removeEventListener('click', onPreviewClick, true);
+    doc.addEventListener('click', onPreviewClick, true);
+
+    // Forms are the other way the iframe can navigate itself out of the
+    // capture (a GET search form is enough).
+    doc.removeEventListener('submit', onPreviewSubmit, true);
+    doc.addEventListener('submit', onPreviewSubmit, true);
+
+    doc.removeEventListener('mousemove', onPreviewHover, true);
+    if (state.inspecting) doc.addEventListener('mousemove', onPreviewHover, true);
+
+    doc.body.style.cursor = state.inspecting ? 'crosshair' : '';
+    return true;
+  }
+
+  function onPreviewSubmit(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setStatus('Form submissions are not followed in the preview', true);
+  }
+
+  function hideOverlay() {
+    var doc = previewDoc();
+    var overlay = doc && doc.getElementById(OVERLAY_ID);
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function ensureOverlay(doc) {
+    var overlay = doc.getElementById(OVERLAY_ID);
+    if (!overlay) {
+      overlay = doc.createElement('div');
+      overlay.id = OVERLAY_ID;
+      overlay.style.cssText =
+        'position:fixed;pointer-events:none;z-index:2147483647;' +
+        'border:2px solid #5b8cff;background:rgba(91,140,255,0.12);display:none;';
+      doc.documentElement.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function outlineElement(el) {
+    var doc = previewDoc();
+    if (!doc || !el) return;
+    var overlay = ensureOverlay(doc);
+    var rect = el.getBoundingClientRect();
+    overlay.style.display = 'block';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+  }
+
+  // What is under the pointer that a person can actually see.
+  //
+  // Scripts are stripped from the captured body, so a menu the site opens and
+  // closes with JavaScript stays in whatever state the HTML shipped it. A
+  // mega-menu left at opacity:0 is invisible and still hit-testable, so every
+  // click on the page beneath it landed on a dropdown link instead - the panel
+  // kept selecting "Pragmatic Play" while the pointer was over the headline.
+  function effectiveOpacity(el, win) {
+    var o = 1;
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      var cs = win.getComputedStyle(n);
+      if (cs.visibility === 'hidden' || cs.display === 'none') return 0;
+      var step = parseFloat(cs.opacity);
+      if (!isNaN(step)) o *= step;
+      if (o <= 0.05) return 0;
+    }
+    return o;
+  }
+
+  function visibleTargetAt(e) {
+    var el = e.target;
+    var doc = el && el.ownerDocument;
+    var win = doc && doc.defaultView;
+    if (!win || !doc.elementsFromPoint) return el;
+    if (effectiveOpacity(el, win) > 0) return el;
+    var stack = doc.elementsFromPoint(e.clientX, e.clientY);
+    for (var i = 0; i < stack.length; i++) {
+      if (stack[i].id === OVERLAY_ID) continue;
+      if (effectiveOpacity(stack[i], win) > 0) return stack[i];
+    }
+    return el;
+  }
+
+  function onPreviewHover(e) {
+    if (!e.target || e.target.id === OVERLAY_ID) return;
+    e = { target: visibleTargetAt(e), clientX: e.clientX, clientY: e.clientY };
+    outlineElement(e.target);
+
+    // Same-document anchors say so rather than reading as dead elements: they
+    // look exactly like links but clicking one inspects instead of loading.
+    var href = linkTargetOf(e.target);
+    var hint = href
+      ? '→ ' + href + '   (click to inspect · shift-click to load it)'
+      : fragmentTargetOf(e.target)
+        ? '↓ jumps within this page   (click to inspect it)'
+        : '';
+    if (hint !== state.hoverHref) {
+      setHoverStatus(hint);
+      state.hoverHref = hint;
+    }
+  }
+
+  function onPreviewClick(e) {
+    // Unconditional: letting the iframe follow a link itself would load the
+    // live site cross-origin and desynchronise the whole editor.
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Resolved the same way as the selection: a link nobody can see is not the
+    // link they clicked.
+    var hit = visibleTargetAt(e);
+
+    // A plain click on a link browses to it by capturing that URL.
+    // Shift-click falls through to inspecting the link element itself.
+    // With inspect on, a click inspects whatever it lands on, links included.
+    // A CTA is nearly always a link, so a mode that browsed instead could not
+    // be used to look at the one kind of element people most want to look at -
+    // and it took a modifier key nobody knew about to get at it. Shift is the
+    // way out, following the link instead. With inspect off the preview
+    // behaves like the page: clicks browse.
+    var navigating = state.inspecting ? e.shiftKey : !e.shiftKey;
+
+    if (navigating) {
+      var href = linkTargetOf(hit);
+      if (href) {
+        loadPage(href);
+        return;
+      }
+
+      // An anchor within this page still moves the preview, since the default
+      // scroll was suppressed above.
+      var anchor = fragmentTargetOf(hit);
+      if (anchor && anchor.scrollIntoView) {
+        anchor.scrollIntoView({ block: 'start' });
+      }
+    }
+
+    if (state.inspecting) selectElement(hit);
+  }
+
+  // Resolves an anchor's href against the captured page's URL, and only for
+  // links this app can actually capture.
+  function linkTargetOf(node) {
+    var el = node;
+    while (el && el.nodeType === 1 && el.tagName !== 'A') el = el.parentElement;
+    if (!el || el.nodeType !== 1) return null;
+
+    var raw = el.getAttribute('href');
+    if (!raw || raw.charAt(0) === '#') return null;
+
+    try {
+      var resolved = new URL(raw, state.pageUrl || state.base);
+      if (!/^https?:$/.test(resolved.protocol)) return null;
+      // A link that spells out the current page and differs only by its
+      // fragment goes nowhere: `https://www.casino.com/#Guides` is this very
+      // document. Capturing it again would spend ten seconds rebuilding the
+      // page that is already on screen and throw the selection away - which is
+      // what happened when someone clicked a button-styled anchor expecting to
+      // see what styles it.
+      if (sameDocument(resolved)) return null;
+      return resolved.toString();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function sameDocument(resolved) {
+    try {
+      var here = new URL(state.pageUrl || state.base);
+      return (
+        resolved.origin === here.origin &&
+        resolved.pathname === here.pathname &&
+        resolved.search === here.search
+      );
+    } catch (err) {
+      return false;
+    }
+  }
+
+  // The element a same-document link points at, so the preview can move to it
+  // the way the real page would. The default scroll is suppressed along with
+  // every other navigation, so it has to be done here or not at all.
+  function fragmentTargetOf(node) {
+    var el = node;
+    while (el && el.nodeType === 1 && el.tagName !== 'A') el = el.parentElement;
+    if (!el || el.nodeType !== 1) return null;
+
+    var raw = el.getAttribute('href');
+    if (!raw) return null;
+
+    var hash = '';
+    if (raw.charAt(0) === '#') {
+      hash = raw.slice(1);
+    } else {
+      try {
+        var resolved = new URL(raw, state.pageUrl || state.base);
+        if (!sameDocument(resolved)) return null;
+        hash = resolved.hash.replace(/^#/, '');
+      } catch (err) {
+        return null;
+      }
+    }
+
+    if (!hash) return null;
+    var doc = previewDoc();
+    if (!doc) return null;
+    try {
+      return doc.getElementById(hash) || doc.querySelector('[name="' + hash + '"]');
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function selectElement(el) {
+    if (!el || el.id === OVERLAY_ID) return;
+    state.selected = el;
+    outlineElement(el);
+
+    var direct = markOverridden(schemeDeclsFor(el));
+    var inherited = schemeDeclsInherited(el);
+    var inside = schemeDeclsInside(el);
+    renderInspector(el, direct, inherited, inside);
+
+    var names = [];
+    direct.concat(inherited, inside).forEach(function (d) {
+      d.vars.forEach(function (n) {
+        if (names.indexOf(n) === -1) names.push(n);
+      });
+    });
+    state.highlight = names;
+    renderCrumbs(el);
+    renderSelCard(el, direct);
+    // Picking something is a statement about scope, so the panel follows it
+    // rather than leaving the full list on screen looking identical.
+    state.scope = 'selection';
+    renderGroups();
+
+    els.inspector.classList.add('open');
+  }
+
+  function closeInspector() {
+    els.inspector.classList.remove('open');
+    state.selected = null;
+    els.crumbs.innerHTML = '';
+    els.selCard.classList.remove('on');
+    state.highlight = [];
+    state.scope = 'all';
+    renderGroups();
+    hideOverlay();
+  }
+
+  function describeElement(el) {
+    var text = el.tagName.toLowerCase();
+    if (el.id) text += '#' + el.id;
+    var cls = (el.getAttribute('class') || '').trim();
+    if (cls) text += '.' + cls.split(/\s+/).slice(0, 3).join('.');
+    return text;
+  }
+
+  // A CSS-module class is mostly machine noise:
+  // "headline-module-scss-module__UtxFFa__root" is one readable word wrapped in
+  // a build hash. Printing them whole turned the breadcrumb into a paragraph
+  // and the selection label into a hash. This keeps the part a person named.
+  var GENERIC_LOCAL = /^(root|container|wrapper|inner|content|main|item|list|box)$/i;
+
+  // Split rather than match: the build hash in the middle can contain digits,
+  // underscores and hyphens, so any charset tight enough to be a "hash" also
+  // rejects half the real ones.
+  function shortClass(cls) {
+    var parts = cls.split('__');
+    if (parts.length < 2) return cls;
+    var base = parts[0].replace(/[-_]module([-_].*)?$/, '');
+    var local = parts[parts.length - 1];
+    if (!local || GENERIC_LOCAL.test(local)) return base || cls;
+    return local;
+  }
+
+  // What the element is, in as few characters as carry meaning.
+  function shortLabel(el) {
+    var tag = el.tagName.toLowerCase();
+    if (el.id && el.id.length <= 16) return tag + '#' + el.id;
+    var cls = (el.getAttribute('class') || '').trim();
+    if (!cls) return tag;
+    var first = shortClass(cls.split(/\s+/)[0]);
+    if (first.length > 16) first = first.slice(0, 15) + '…';
+    return tag + '.' + first;
+  }
+
+  // Any captured variable, not only the --scheme-* ones: `font-family:
+  // var(--font-base)` is exactly the declaration someone clicking a heading is
+  // looking for. Names the capture did not return are dropped, since a
+  // variable with no row behind it is nothing the inspector can offer.
+  function extractVarNames(value) {
+    var names = [];
+    var re = /var\(\s*(--[A-Za-z0-9_-]+)/g;
+    var match;
+    while ((match = re.exec(value))) {
+      if (!Object.prototype.hasOwnProperty.call(state.current, match[1])) continue;
+      if (names.indexOf(match[1]) === -1) names.push(match[1]);
+    }
+    return names;
+  }
+
+  // Every declaration in the page that references a captured variable,
+  // indexed once per capture. Built up front because inspecting a subtree
+  // tests these against many elements, and re-walking every stylesheet each
+  // time would be far slower than filtering a short pre-built list.
+  function schemeRuleIndex() {
+    if (state.ruleIndex) return state.ruleIndex;
+
+    var doc = previewDoc();
+    if (!doc) return [];
+
+    var index = [];
+    // Literals are kept apart from the variable index rather than mixed into
+    // it: the subtree scope tests every indexed rule against a querySelectorAll,
+    // so folding thousands of hard-coded declarations into the same list would
+    // slow every inspection down for a scope that never shows them.
+    var literals = [];
+    var seen = {};
+
+    // The enclosing @media condition travels with each declaration. A
+    // responsive scheme sets the same property once per breakpoint, so without
+    // it every breakpoint's rule looks equally in force and one element appears
+    // to have two font sizes at once.
+    function walk(rules, media) {
+      for (var i = 0; i < rules.length; i++) {
+        var rule = rules[i];
+        if (rule.cssRules && !rule.selectorText) {
+          var condition = rule.conditionText || (rule.media && rule.media.mediaText) || '';
+          walk(rule.cssRules, condition ? (media ? media + ' and ' + condition : condition) : media);
+          continue;
+        }
+        if (!rule.selectorText || !rule.style) continue;
+
+        var decls = authoredDeclarations(rule);
+        for (var j = 0; j < decls.length; j++) {
+          var key = decls[j].prop + '|' + decls[j].value + '|' + rule.selectorText + '|' + (media || '');
+          if (seen[key]) continue;
+          seen[key] = true;
+          // A declaration whose variables were all filtered out has nothing
+          // editable behind it, so it would only lengthen the scan.
+          var entry = {
+            prop: decls[j].prop,
+            expr: decls[j].value,
+            selector: rule.selectorText,
+            media: media || '',
+            literal: !!decls[j].literal,
+            vars: [],
+          };
+          if (entry.literal) {
+            literals.push(entry);
+            continue;
+          }
+          entry.vars = extractVarNames(decls[j].value);
+          if (!entry.vars.length) continue;
+          index.push(entry);
+        }
+      }
+    }
+
+    for (var s = 0; s < doc.styleSheets.length; s++) {
+      var rules;
+      try {
+        rules = doc.styleSheets[s].cssRules;
+      } catch (err) {
+        continue;
+      }
+      if (rules) walk(rules, '');
+    }
+
+    state.ruleIndex = index;
+    state.literalIndex = literals;
+    return index;
+  }
+
+  // Declarations that write a value straight into a rule, on the element or on
+  // an ancestor it inherits type from. This is the answer to "I changed the
+  // family variable and the title did not move": the rule painting it never
+  // referenced a variable, so no edit here can reach it.
+  function hardcodedFor(el) {
+    schemeRuleIndex();
+    var literals = state.literalIndex || [];
+    var doc = previewDoc();
+    var computed = doc ? doc.defaultView.getComputedStyle(el) : null;
+    var out = [];
+    // The nearest declaration of a property is the one worth reporting, so a
+    // family named again on every ancestor is not listed five times.
+    var claimed = {};
+
+    // A family is only reported if the element really is rendering in it. The
+    // browser has already resolved the whole cascade, so asking it settles
+    // which of several matching rules actually won - guesswork this app cannot
+    // do from selectors alone.
+    var paints = function (d) {
+      if (d.prop !== 'font-family' || !computed) return true;
+      return firstFamily(computed.fontFamily) === firstFamily(d.expr);
+    };
+
+    var live = function (d) {
+      return mediaApplies(d.media) && !d.overridden && paints(d);
+    };
+
+    var take = function (target, from) {
+      var here = markOverridden(
+        literals.filter(function (rule) {
+          if (claimed[rule.prop]) return false;
+          if (from && !INHERITABLE.test(rule.prop)) return false;
+          return selectorMatches(target, rule.selector);
+        })
+      ).filter(live);
+
+      here.forEach(function (d) {
+        out.push(from ? Object.assign({}, d, { from: from }) : d);
+      });
+      here.forEach(function (d) {
+        claimed[d.prop] = true;
+      });
+    };
+
+    take(el, '');
+
+    var ancestor = el.parentElement;
+    while (ancestor && ancestor.tagName !== 'HTML') {
+      take(ancestor, describeElement(ancestor));
+      ancestor = ancestor.parentElement;
+    }
+
+    return out;
+  }
+
+  function firstFamily(value) {
+    return String(value || '').split(',')[0].replace(/['"]/g, '').trim().toLowerCase();
+  }
+
+  // Whether a rule's media condition holds at the preview's current width. A
+  // declaration behind a query that does not currently match is real but is not
+  // what the element is painted with.
+  function mediaApplies(media) {
+    if (!media) return true;
+    var doc = previewDoc();
+    if (!doc || !doc.defaultView || !doc.defaultView.matchMedia) return true;
+    try {
+      return doc.defaultView.matchMedia(media).matches;
+    } catch (err) {
+      return true;
+    }
+  }
+
+  // Marks every declaration that matches the current width but loses to a
+  // later one for the same property, so only the winner shows a resolved value.
+  function markOverridden(decls) {
+    var lastLive = {};
+    decls.forEach(function (d, i) {
+      d.overridden = false;
+      if (mediaApplies(d.media)) lastLive[d.prop] = i;
+    });
+    decls.forEach(function (d, i) {
+      if (mediaApplies(d.media) && lastLive[d.prop] !== i) d.overridden = true;
+    });
+    return decls;
+  }
+
+  // Declarations applying to the element itself.
+  function schemeDeclsFor(el) {
+    return schemeRuleIndex().filter(function (rule) {
+      return selectorMatches(el, rule.selector);
+    });
+  }
+
+  // Inheritable declarations coming from ancestors. Text colour and type are
+  // usually set once high up rather than on the element being looked at, so
+  // without this the variable actually painting an element's text is missing
+  // from its panel entirely.
+  function schemeDeclsInherited(el) {
+    var index = schemeRuleIndex();
+    var out = [];
+    var ancestor = el.parentElement;
+
+    while (ancestor && ancestor.nodeType === 1) {
+      var label = describeElement(ancestor);
+      index.forEach(function (rule) {
+        if (!INHERITABLE.test(rule.prop)) return;
+        if (!selectorMatches(ancestor, rule.selector)) return;
+        out.push(Object.assign({}, rule, { from: label }));
+      });
+      ancestor = ancestor.parentElement;
+    }
+    return out;
+  }
+
+  // Declarations applying to anything inside the element. A container like a
+  // review card carries almost no variables of its own - everything visible
+  // in it (button, heading, stars) is styled by rules on its descendants.
+  function schemeDeclsInside(el) {
+    var out = [];
+    schemeRuleIndex().forEach(function (rule) {
+      var hits = matchesWithin(el, rule.selector);
+      if (hits) out.push(Object.assign({}, rule, { count: hits }));
+    });
+    return out;
+  }
+
+  function matchesWithin(el, selectorText) {
+    try {
+      return el.querySelectorAll(selectorText).length;
+    } catch (err) {
+      try {
+        return el.querySelectorAll(withoutPseudo(selectorText)).length;
+      } catch (err2) {
+        return 0;
+      }
+    }
+  }
+
+  function withoutPseudo(selectorText) {
+    return selectorText.replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, '');
+  }
+
+  // Reads declarations from the rule's own text rather than iterating
+  // rule.style. CSSOM expands shorthands into longhands, and a longhand
+  // whose value came from a shorthand containing var() reads back as an
+  // empty string — so `background: var(--scheme-x)` is invisible via
+  // rule.style. Parsing the authored text also keeps the property name the
+  // author wrote instead of listing four border-*-color longhands.
+  function authoredDeclarations(rule) {
+    var out = [];
+    var text = rule.cssText || '';
+    var open = text.indexOf('{');
+    var close = text.lastIndexOf('}');
+    if (open === -1 || close === -1) return out;
+
+    var block = text.slice(open + 1, close);
+    var depth = 0;
+    var current = '';
+    var parts = [];
+    for (var i = 0; i < block.length; i++) {
+      var ch = block.charAt(i);
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (ch === ';' && depth === 0) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    parts.push(current);
+
+    parts.forEach(function (decl) {
+      var colon = decl.indexOf(':');
+      if (colon === -1) return;
+      var prop = decl.slice(0, colon).trim();
+      var value = decl.slice(colon + 1).trim();
+      if (!prop) return;
+      var hasVar = value.indexOf('var(--') !== -1;
+      // Declarations with no variable in them are kept for a short list of
+      // properties, so the inspector can say "this face is written into the
+      // rule" instead of leaving someone editing a variable that was never
+      // going to move it.
+      if (!hasVar && !WATCHED_LITERAL.test(prop)) return;
+      out.push({ prop: prop, value: value, literal: !hasVar });
+    });
+    return out;
+  }
+
+  function selectorMatches(el, selectorText) {
+    try {
+      return el.matches(selectorText);
+    } catch (err) {
+      // Pseudo-element selectors (.btn::before) throw; match the base
+      // selector so the pseudo-element's variables still surface.
+      try {
+        return el.matches(withoutPseudo(selectorText));
+      } catch (err2) {
+        return false;
+      }
+    }
+  }
+
+  function renderInspector(el, direct, inherited, inside) {
+    els.inspectorTag.textContent = shortLabel(el);
+    els.inspectorTag.title = describeElement(el);
+    els.inspectorBody.innerHTML = '';
+
+    // Anything already listed is skipped, so each variable gets exactly one
+    // editable row and the sections read as a progression: set here, handed
+    // down to here, used somewhere below here.
+    var shown = {};
+    var counts =
+      renderVarSection('On this element', direct, el, shown, false) +
+      renderVarSection('Inherited from ancestors', inherited, el, shown, false) +
+      renderVarSection('Inside this element', inside, el, shown, true);
+
+    var fixed = renderHardcoded(el);
+
+    if (!counts && !fixed) {
+      var empty = document.createElement('div');
+      empty.id = 'inspectorEmpty';
+      empty.textContent = 'No captured variables style this element, anything inside it, or reach it by inheritance.';
+      els.inspectorBody.appendChild(empty);
+    }
+  }
+
+  // Written into the rule, with no variable in the way. Nothing here is
+  // editable, and that is the point: it says why changing a variable left this
+  // part of the page alone.
+  function renderHardcoded(el) {
+    var decls = hardcodedFor(el);
+    if (!decls.length) return 0;
+
+    var header = document.createElement('div');
+    header.className = 'inspect-section';
+    header.innerHTML = '<span>Hard-coded — no variable</span><span>' + decls.length + '</span>';
+    els.inspectorBody.appendChild(header);
+
+    decls.forEach(function (d) {
+      var usage = document.createElement('div');
+      usage.className = 'decl-usage';
+
+      var chipColor = colorCss(d.expr);
+      if (chipColor) {
+        var chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.style.background = chipColor;
+        usage.appendChild(chip);
+      }
+
+      var text = document.createElement('span');
+      text.className = 'text';
+      text.textContent =
+        d.prop + ' · ' + d.selector + ' → ' + d.expr +
+        (d.from ? '  ↑ ' + d.from : '') +
+        (d.media ? '  @' + d.media : '');
+      usage.appendChild(text);
+      usage.title =
+        (d.media ? '@media ' + d.media + '\n' : '') +
+        d.selector + ' { ' + d.prop + ': ' + d.expr + ' }' +
+        (d.from ? '\ninherited from ' + d.from : '') +
+        '\nThis value is written into the rule, not taken from a variable, so no edit in this tool changes it.';
+
+      els.inspectorBody.appendChild(usage);
+    });
+
+    return decls.length;
+  }
+
+  function renderVarSection(title, decls, el, shown, isDescendant) {
+    var doc = previewDoc();
+    // For inherited rules the computed value on the selected element is the
+    // effective one, which is exactly what is wanted here.
+    var computed = doc && !isDescendant ? doc.defaultView.getComputedStyle(el) : null;
+
+    // Group by variable so each appears once as a single editable row, with
+    // the declarations that reference it listed underneath.
+    var order = [];
+    var usages = {};
+    decls.forEach(function (d) {
+      d.vars.forEach(function (name) {
+        if (shown[name]) return;
+        if (!usages[name]) {
+          usages[name] = [];
+          order.push(name);
+        }
+        usages[name].push(d);
+      });
+    });
+
+    if (!order.length) return 0;
+
+    var header = document.createElement('div');
+    header.className = 'inspect-section';
+    header.innerHTML = '<span>' + title + '</span><span>' + order.length + '</span>';
+    els.inspectorBody.appendChild(header);
+
+    order.forEach(function (name) {
+      shown[name] = true;
+
+      var wrap = document.createElement('div');
+      wrap.className = 'inspect-var';
+
+      var row = buildRow(name);
+      // Every variable here relates to the selection, so the highlight that
+      // marks them in the main list would just be noise in this panel.
+      row.classList.remove('highlight');
+      row.querySelector('.name').addEventListener('click', function () {
+        jumpToVar(name);
+      });
+      row.querySelector('.name').title = name + ' — click to find it in the list below';
+      wrap.appendChild(row);
+
+      // Declarations that are not in force are still worth having - the mobile
+      // size is real, it is just not what this width renders - but listing them
+      // beside the ones that are turns the panel into a wall where half the
+      // rows say "ignore me", and the answer to "what styles this?" gets lost
+      // among them. They collapse behind a count instead.
+      var quiet = [];
+
+      usages[name].forEach(function (d) {
+        var usage = document.createElement('div');
+        usage.className = 'decl-usage';
+
+        // Only the selected element has a single computed value to report; a
+        // descendant selector can match many elements at once.
+        var resolved = computed ? computed.getPropertyValue(d.prop).trim() : '';
+        // Shorthands compute to long strings ("rgb(16,24,32) none repeat
+        // scroll 0% 0% / auto padding-box border-box") - not worth showing.
+        if (resolved.length > 40) resolved = '';
+
+        var chipColor = resolved ? colorCss(resolved) : null;
+        if (chipColor) {
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          chip.style.background = chipColor;
+          usage.appendChild(chip);
+        }
+
+        // Two separate reasons a declaration is not what you are looking at:
+        // its query does not match the current width, or it matches but a later
+        // one for the same property wins. Either way its resolved value would
+        // be misleading beside it.
+        var live = mediaApplies(d.media);
+        var note = '';
+        if (!live) note = '  (not at this width)';
+        else if (d.overridden) note = '  (overridden)';
+        if (note) {
+          resolved = '';
+          usage.classList.add('inactive');
+        }
+
+        var text = document.createElement('span');
+        text.className = 'text';
+        text.textContent =
+          d.prop + ' · ' + d.selector +
+          (resolved ? ' → ' + resolved : '') +
+          (d.count > 1 ? '  ×' + d.count : '') +
+          (d.from ? '  ↑ ' + d.from : '') +
+          (d.media ? '  @' + d.media : '') + note;
+        usage.appendChild(text);
+        usage.title =
+          (d.media ? '@media ' + d.media + '\n' : '') +
+          d.selector + ' { ' + d.prop + ': ' + d.expr + ' }' +
+          (d.from ? '\ninherited from ' + d.from : '') +
+          (live ? '' : '\nThis breakpoint does not apply at the current preview width.') +
+          (live && d.overridden ? '\nA later declaration for this property wins.' : '');
+
+        if (note) {
+          usage.classList.add('folded');
+          quiet.push(usage);
+        }
+        wrap.appendChild(usage);
+      });
+
+      if (quiet.length) {
+        var toggle = document.createElement('button');
+        toggle.className = 'decl-more';
+        // Named by reason, so the count is not a mystery: a breakpoint that
+        // does not apply here is a different thing from a rule that lost.
+        var offWidth = quiet.filter(function (node) {
+          return node.textContent.indexOf('not at this width') !== -1;
+        }).length;
+        var reason = offWidth === quiet.length
+          ? 'other breakpoints'
+          : offWidth
+            ? 'other breakpoints · overridden'
+            : 'overridden';
+        // "+1 not in force (overridden)" is a sentence about the cascade
+        // printed where a designer expects a property. A dot is a fact about
+        // this row; the sentence is what you get when you ask.
+        var why = reason === 'other breakpoints'
+          ? 'Set for another screen size — not in force here.'
+          : 'Another rule wins here — click to see why.';
+        var dot = document.createElement('span');
+        dot.className = 'override-dot';
+        dot.title = why;
+        // The dot alone. No count, no words: the row is about a colour, and
+        // the cascade is a footnote you open if you want it.
+        toggle.textContent = '';
+        toggle.appendChild(dot);
+        toggle.title = why;
+        toggle.setAttribute('aria-label', why);
+        toggle.addEventListener('click', function () {
+          wrap.classList.toggle('show-decls');
+          wrap.classList.toggle('show-folded');
+        });
+        // After the live ones, so what is actually painting the element reads
+        // first.
+        wrap.appendChild(toggle);
+      }
+
+      els.inspectorBody.appendChild(wrap);
+    });
+
+    return order.length;
+  }
+
+  function jumpToVar(name) {
+    var filter = els.filterInput.value.trim().toLowerCase();
+    if (filter && name.toLowerCase().indexOf(filter) === -1) {
+      els.filterInput.value = '';
+      renderGroups();
+    }
+    var row = els.groups.querySelector('[data-var="' + name + '"]');
+    if (!row) return;
+    var group = row.closest('.group');
+    if (group) group.classList.remove('collapsed');
+    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    row.classList.remove('flash');
+    void row.offsetWidth;
+    row.classList.add('flash');
+  }
+
+  function changedVars() {
+    var out = {};
+    Object.keys(state.edits).forEach(function (name) {
+      out[name] = state.edits[name];
+    });
+    return out;
+  }
+
+  // Every custom-property declaration in a pasted stylesheet, in order, last
+  // one winning. Selectors are ignored on purpose: a scheme file is one :root
+  // block, and being strict about that would reject the half-dozen shapes the
+  // same content arrives in (a `html {}` wrapper, a fragment with no braces at
+  // all, a paste that starts mid-file).
+  function parseCssVariables(text) {
+    var clean = String(text || '').replace(/\/\*[\s\S]*?\*\//g, '');
+    var out = {};
+    var order = [];
+    var depth = 0;
+    var current = '';
+    var parts = [];
+
+    // Split on semicolons that are not inside parentheses, so a value like
+    // `rgba(0, 0, 0, .5)` or a multi-line filter() survives intact. Only
+    // parentheses count: a brace opens a block, not a value, and counting it
+    // would mean no declaration inside `:root { … }` ever ended.
+    for (var i = 0; i < clean.length; i++) {
+      var ch = clean.charAt(i);
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (ch === ';' && depth <= 0) {
+        parts.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    parts.push(current);
+
+    parts.forEach(function (part) {
+      // A declaration can be preceded by a selector and a brace on the same
+      // chunk (`:root {  --a: 1`), so start at the last brace.
+      var brace = part.lastIndexOf('{');
+      var decl = brace === -1 ? part : part.slice(brace + 1);
+      var match = decl.match(/(--[A-Za-z0-9_-]+)\s*:\s*([\s\S]+)/);
+      if (!match) return;
+      var name = match[1];
+      var value = match[2].replace(/\}[\s\S]*$/, '').trim();
+      if (!value) return;
+      if (!Object.prototype.hasOwnProperty.call(out, name)) order.push(name);
+      out[name] = value;
+    });
+
+    return { values: out, order: order };
+  }
+
+  function openImport() {
+    els.importText.value = '';
+    els.importReport.textContent = '';
+    els.importReport.classList.remove('error');
+    els.importModal.classList.add('open');
+    els.importText.focus();
+  }
+
+  function closeImport() {
+    els.importModal.classList.remove('open');
+  }
+
+  // Applies a pasted scheme as edits. Edits, not a new capture: the page stays
+  // the one on screen, every value stays revertible with Reset all, and Export
+  // CSS gives back the merged result.
+  function applyImport() {
+    var parsed = parseCssVariables(els.importText.value);
+    var names = parsed.order;
+
+    if (!names.length) {
+      els.importReport.textContent = 'No custom properties found — expected lines like "--v-palette-brand-primary-default: #ffdf1b;".';
+      els.importReport.classList.add('error');
+      return;
+    }
+
+    var changed = 0;
+    var added = 0;
+    var same = 0;
+
+    names.forEach(function (name) {
+      var value = parsed.values[name];
+      var known = Object.prototype.hasOwnProperty.call(state.original, name);
+
+      if (!known) {
+        // A token this page does not define. It still gets applied - that is
+        // the point of importing a scheme the site has not been given yet -
+        // and an empty original means Reset all removes it again.
+        state.original[name] = '';
+        added++;
+      } else if (state.original[name] === value) {
+        same++;
+      } else {
+        changed++;
+      }
+
+      if (value === state.original[name]) delete state.edits[name];
+      else state.edits[name] = value;
+      state.current[name] = value;
+      delete state.linked[name];
+    });
+
+    state.valueGroups = null;
+    state.cascade = null;
+    els.cascadeBtn.classList.add('hidden');
+
+    // The imported scheme may name families the page never loaded; the panel's
+    // own font check picks those up once the rows exist.
+    renderFontOptions();
+    renderGroups();
+    refreshAllRows();
+    applyEdits();
+    resolveImported(names);
+
+    var unused = Object.keys(state.current).length - names.length;
+    closeImport();
+    setStatus(
+      'Imported ' + names.length + ' variables · ' + changed + ' changed' +
+      (added ? ' · ' + added + ' new to this page' : '') +
+      (same ? ' · ' + same + ' already matched' : '') +
+      (unused > 0 ? ' · ' + unused + ' on the page the file does not set' : '') +
+      ' — Reset all undoes it'
+    );
+  }
+
+  // A scheme file is written in references - `--v-surface-button:
+  // var(--v-palette-brand-primary-default)` - so a freshly imported row would
+  // show that text and no swatch, which tells a designer nothing about the
+  // colour they just pasted. The authored text is what gets applied and
+  // exported; what the row *shows* is the value it resolves to on the page,
+  // read back the same way a capture reads one.
+  function resolveImported(names) {
+    var doc = previewDoc();
+    if (!doc) return;
+
+    var computed = doc.defaultView.getComputedStyle(doc.documentElement);
+    names.forEach(function (name) {
+      var authored = state.edits[name];
+      if (!authored || authored.indexOf('var(') === -1) return;
+
+      var resolved = computed.getPropertyValue(name).trim();
+      if (!resolved || resolved === state.current[name]) return;
+
+      // The reference stays the thing that is applied and exported; only the
+      // display value follows the page.
+      state.authored[name] = authored;
+      state.current[name] = resolved;
+      refreshRowsFor(name);
+      refreshTypeSets(name);
+    });
+    state.valueGroups = null;
+  }
+
+  function openExport() {
+    // Applying a scheme means applying what changed, so that leads; the full
+    // block stays available for handing on a whole scheme.
+    var changes = changedVars();
+    state.exportMode = Object.keys(changes).length ? 'changed-css' : 'all-css';
+    renderExport();
+    els.exportModal.classList.add('open');
+  }
+
+  function renderExport() {
+    var changes = changedVars();
+    var count = Object.keys(changes).length;
+
+    var buttons = els.exportModes.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle('active', buttons[i].getAttribute('data-mode') === state.exportMode);
+    }
+
+    if (state.exportMode === 'all-css') {
+      // Authored values, so an exported token that derived from another still
+      // derives from it rather than being frozen to a literal.
+      var full = Object.assign({}, state.authored, state.edits);
+      els.exportText.value = fontImportsFor(full) + buildRootBlock(full);
+      els.exportSummary.textContent =
+        Object.keys(full).length + ' variables — the whole scheme, keeping var() references.';
+    } else {
+      els.exportText.value = count ? fontImportsFor(changes) + buildRootBlock(changes) : '';
+      els.exportSummary.textContent = count
+        ? count + ' changed variable' + (count === 1 ? '' : 's') + ' — only these differ from the page.'
+        : 'Nothing changed yet.';
+    }
+  }
+
+  function downloadExport() {
+    var host = 'scheme';
+    try {
+      host = new URL(state.pageUrl).hostname.replace(/^www\./, '');
+    } catch (err) {
+      // keep the fallback
+    }
+
+    var blob = new Blob([els.exportText.value], { type: 'text/css' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = host + '-scheme.css';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(function () {
+      URL.revokeObjectURL(link.href);
+    }, 1000);
+  }
+
+  function closeExport() {
+    els.exportModal.classList.remove('open');
+  }
+
+  async function copyExport() {
+    try {
+      await navigator.clipboard.writeText(els.exportText.value);
+      els.exportCopyBtn.textContent = 'Copied!';
+    } catch (err) {
+      els.exportText.select();
+      document.execCommand('copy');
+      els.exportCopyBtn.textContent = 'Copied!';
+    }
+    setTimeout(function () {
+      els.exportCopyBtn.textContent = 'Copy';
+    }, 1500);
+  }
+})();
+</script>
+</body>
+</html>
