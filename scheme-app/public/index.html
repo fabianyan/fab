@@ -796,6 +796,20 @@
     z-index: 5;
   }
   #moreMenu.hidden { display: none; }
+  #topMoreWrap { position: relative; display: inline-flex; }
+  #topMoreMenu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    background: var(--app-panel, #16181d); border: 1px solid var(--app-border);
+    border-radius: 6px; padding: 4px; display: flex; flex-direction: column;
+    min-width: 160px; z-index: 6;
+  }
+  #topMoreMenu.hidden { display: none; }
+  #topMoreMenu button {
+    background: none; border: 0; text-align: left; padding: 6px 8px;
+    border-radius: 4px; color: var(--app-text); font: inherit; cursor: pointer;
+  }
+  #topMoreMenu button:hover { background: rgba(255,255,255,0.07); }
+  #topMoreMenu button:disabled { opacity: .4; cursor: default; }
   #moreMenu button {
     background: none;
     border: 0;
@@ -808,6 +822,190 @@
   }
   #moreMenu button:hover { background: rgba(255,255,255,0.07); }
 
+  /* ---------------------------------------------------------------- redesign
+     The panel had five things on every row and four of them were developer
+     data. What survives is: what it is, what it looks like, what it is set to.
+     Everything else moved to a tooltip or behind a toggle. */
+
+  #editorPanel { --tool-accent: #5b8cff; }
+
+  .row {
+    min-height: 40px;
+    padding: 8px 12px;
+    gap: 10px;
+    border-radius: 4px;
+  }
+  .row:hover { background: rgba(255, 255, 255, 0.04); }
+
+  /* One shade of emphasis per kind of thing: label, value, group header. */
+  .row .name {
+    font-size: 13px;
+    font-weight: 400;
+    color: color-mix(in srgb, var(--panel-fg) 72%, transparent);
+    letter-spacing: 0;
+  }
+  .row.changed .name { color: var(--panel-fg); }
+
+  /* The token path is the answer to a question a designer never asks. It is
+     one hover, or one toggle, away - not on screen 185 times. */
+  .row .sv-var { display: none; }
+  #editorPanel.show-tech .row .sv-var {
+    display: block;
+    font-size: 10.5px;
+    color: color-mix(in srgb, var(--panel-dim) 80%, transparent);
+  }
+  .row .use { display: none; }
+
+  .row .swatch { width: 24px; height: 24px; border-radius: 4px; }
+  .row .swatch input[type="color"] { inset: -5px; width: 34px; height: 34px; }
+
+  /* The value reads as text until you click it, so a list of 20 rows is not a
+     list of 20 bordered input boxes. */
+  .row input.value {
+    width: 96px;
+    background: transparent;
+    border: 1px solid transparent;
+    text-align: right;
+    font-size: 12px;
+    color: color-mix(in srgb, var(--panel-fg) 70%, transparent);
+    padding: 3px 4px;
+  }
+  .row.changed input.value { color: var(--panel-fg); }
+  .row input.value:hover { border-color: var(--panel-line); }
+  .row input.value:focus {
+    border-color: var(--tool-accent);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--panel-fg);
+    outline: none;
+  }
+
+  .row .reset { opacity: 0; transition: opacity .12s; }
+  .row:hover .reset, .row.changed .reset { opacity: 1; }
+
+  /* "+1 not in force (overridden)" is a sentence about the cascade. A dot is
+     a fact about this row; the sentence is behind it. */
+  .override-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #d8a33a;
+    display: inline-block;
+    margin-left: 6px;
+    cursor: help;
+    flex: none;
+  }
+
+  .group { border: 0; margin: 0; background: none; }
+  .group + .group { border-top: 1px solid var(--panel-line); }
+  .group-header {
+    padding: 10px 12px 6px;
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .group-header::before { content: '▾'; font-size: 9px; opacity: .7; }
+  .group.collapsed .group-header::before { content: '▸'; }
+  .group-count { margin-left: auto; opacity: .7; }
+  .group-rows { padding: 0 0 6px; }
+  .group.collapsed .group-rows { display: none; }
+
+  /* The selected element, pinned, with its own ground so it cannot be mistaken
+     for another row in the list. */
+  #selCard {
+    display: none;
+    gap: 10px;
+    align-items: center;
+    margin: 8px 10px;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(91, 140, 255, 0.09);
+    border-left: 3px solid var(--tool-accent);
+  }
+  #selCard.on { display: flex; }
+  #selCardSwatch {
+    width: 30px; height: 30px; border-radius: 4px; flex: none;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.15);
+  }
+  #selCardText { min-width: 0; flex: 1; }
+  #selCardName { font-size: 13px; color: var(--panel-fg); }
+  #selCardSel {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px; color: var(--panel-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Nothing picked is a state worth designing, not an empty list. */
+  #emptyPick { display: none; padding: 28px 16px; text-align: center; }
+  #emptyPick.on { display: block; }
+  #emptyPick .big { font-size: 22px; opacity: .5; }
+  #emptyPick .msg { font-size: 12.5px; color: var(--panel-dim); margin: 6px 0 12px; }
+  #pickNowBtn {
+    background: var(--tool-accent); color: #06121f; border: 0;
+    border-radius: 5px; padding: 7px 14px; font-size: 12.5px; cursor: pointer;
+  }
+
+  #pickHint {
+    background: var(--tool-accent);
+    color: #06121f;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  /* Ghost, ghost, filled - one primary action, not three. */
+  #editorFooter #resetAllBtn, #editorFooter #moreBtn {
+    background: none;
+    border-color: transparent;
+    color: var(--panel-dim);
+  }
+  #editorFooter #resetAllBtn:hover, #editorFooter #moreBtn:hover { color: var(--panel-fg); }
+
+  /* Telemetry, folded away until asked for. */
+  #statusChip {
+    background: none; border: 1px solid var(--panel-line); color: var(--panel-dim);
+    border-radius: 999px; padding: 2px 10px; font-size: 11px; cursor: pointer;
+  }
+  #status.folded #statusText { display: none; }
+  #status:not(.folded) #statusChip { opacity: .6; }
+
+  .device-chip {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em;
+    border: 1px solid var(--panel-line); border-radius: 3px;
+    padding: 0 4px; margin-left: 6px; color: var(--panel-dim); flex: none;
+  }
+
+  /* The colour picker offers the scheme's own colours first: a designer
+     reaching for a colour almost always wants one already in the system. */
+  #swatchPop {
+    position: fixed;
+    z-index: 20;
+    background: var(--app-panel, #1e2129);
+    border: 1px solid var(--panel-line);
+    border-radius: 8px;
+    padding: 10px;
+    display: none;
+    box-shadow: 0 8px 28px rgba(0,0,0,.5);
+  }
+  #swatchPop.on { display: block; }
+  #swatchPopGrid {
+    display: grid;
+    grid-template-columns: repeat(8, 22px);
+    gap: 6px;
+    margin-bottom: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  #swatchPopGrid button {
+    width: 22px; height: 22px; border-radius: 4px; padding: 0;
+    border: 1px solid rgba(255,255,255,.18); cursor: pointer;
+  }
+  #swatchPopGrid button.here { box-shadow: 0 0 0 2px var(--tool-accent); }
+  #swatchPopFoot { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--panel-dim); }
+
   #importActions, #exportActions, #diagActions {
     display: flex;
     justify-content: flex-end;
@@ -819,21 +1017,26 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v49</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v50</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
-    <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
       <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
       <input id="passInput" class="authField" type="password" placeholder="password" autocomplete="off" />
     </span>
-    <button id="loadBtn">Load real page</button>
-    <button id="recaptureBtn" class="secondary" title="Re-capture the page currently in the preview" disabled>↻ Recapture</button>
+    <button id="loadBtn">Load</button>
+    <span id="topMoreWrap">
+      <button id="topMoreBtn" class="secondary" title="Sign-in, re-capture">⋯</button>
+      <div id="topMoreMenu" class="hidden">
+        <button id="loginToggle">Basic Auth</button>
+        <button id="recaptureBtn" title="Re-capture the page currently in the preview" disabled>↻ Recapture</button>
+      </div>
+    </span>
     <span id="deviceToggle">
       <button id="desktopBtn" class="seg active" title="Desktop viewport (1440px)">Desktop</button>
       <button id="mobileBtn" class="seg" title="Mobile viewport (390px)">Mobile</button>
     </span>
   </header>
-  <div id="status"><span id="statusText"></span><button id="cascadeBtn" class="hidden"></button></div>
+  <div id="status" class="folded"><button id="statusChip" type="button">ⓘ</button><span id="statusText"></span><button id="cascadeBtn" class="hidden"></button></div>
 
   <div id="body">
     <div id="editorPanel">
@@ -844,8 +1047,8 @@
       <div id="pickHint">Click an element on the page.</div>
       <div id="scopeBar">
         <span id="scopeToggle">
-          <button id="scopeSelBtn" class="seg" disabled title="Only the variables that style the element you picked">Selection <b id="scopeSelCount">0</b></button>
-          <button id="scopeAllBtn" class="seg active" title="Every variable on the page">Whole page <b id="scopeAllCount">0</b></button>
+          <button id="scopeSelBtn" class="seg" disabled title="Only what styles the element you picked">This element <b id="scopeSelCount">0</b></button>
+          <button id="scopeAllBtn" class="seg active" title="Everything on the page">Whole page <b id="scopeAllCount">0</b></button>
         </span>
         <button id="dirtyChip" class="chip hidden" title="Show only what you have changed"></button>
       </div>
@@ -866,6 +1069,19 @@
         <div id="crumbs" title="Where this element sits. Click a step to style that parent instead."></div>
         <div id="inspectorBody"></div>
       </div>
+      <div id="selCard">
+        <div id="selCardSwatch"></div>
+        <div id="selCardText">
+          <div id="selCardName"></div>
+          <div id="selCardSel"></div>
+        </div>
+        <button id="selCardClear" class="icon" title="Deselect">✕</button>
+      </div>
+      <div id="emptyPick">
+        <div class="big">⌖</div>
+        <div class="msg">Nothing selected.</div>
+        <button id="pickNowBtn">Pick an element</button>
+      </div>
       <div id="groups"></div>
       <div id="editorFooter">
         <button id="resetAllBtn" class="secondary">Reset all</button>
@@ -874,6 +1090,7 @@
           <div id="moreMenu" class="hidden">
             <button id="importBtn" title="Paste a :root block to preview a scheme this page does not have yet">Import CSS…</button>
             <button id="diagBtn" title="What each of the page's stylesheets contributed">Diagnose…</button>
+            <button id="techBtn" title="Show the CSS variable name under every row">Show technical names</button>
           </div>
         </span>
         <button id="exportBtn">Export CSS…</button>
@@ -1067,6 +1284,18 @@
     scopeAllCount: document.getElementById('scopeAllCount'),
     dirtyChip: document.getElementById('dirtyChip'),
     crumbs: document.getElementById('crumbs'),
+    selCard: document.getElementById('selCard'),
+    selCardSwatch: document.getElementById('selCardSwatch'),
+    selCardName: document.getElementById('selCardName'),
+    selCardSel: document.getElementById('selCardSel'),
+    selCardClear: document.getElementById('selCardClear'),
+    emptyPick: document.getElementById('emptyPick'),
+    pickNowBtn: document.getElementById('pickNowBtn'),
+    techBtn: document.getElementById('techBtn'),
+    statusEl: document.getElementById('status'),
+    statusChip: document.getElementById('statusChip'),
+    topMoreBtn: document.getElementById('topMoreBtn'),
+    topMoreMenu: document.getElementById('topMoreMenu'),
     moreBtn: document.getElementById('moreBtn'),
     moreMenu: document.getElementById('moreMenu'),
     editorPanel: document.getElementById('editorPanel'),
@@ -1119,6 +1348,23 @@
   els.cascadeBtn.addEventListener('click', applyCascade);
   els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
   els.exportBtn.addEventListener('click', openExport);
+  els.selCardClear.addEventListener('click', closeInspector);
+  els.pickNowBtn.addEventListener('click', function () {
+    if (!state.inspecting) els.inspectBtn.click();
+  });
+  els.techBtn.addEventListener('click', function () {
+    var on = els.editorPanel.classList.toggle('show-tech');
+    els.techBtn.textContent = on ? 'Hide technical names' : 'Show technical names';
+  });
+  els.statusChip.addEventListener('click', function () {
+    els.statusEl.classList.toggle('folded');
+  });
+  els.topMoreBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    els.topMoreMenu.classList.toggle('hidden');
+  });
+  document.addEventListener('click', function () { els.topMoreMenu.classList.add('hidden'); });
+
   els.scopeAllBtn.addEventListener('click', function () { setScope('all'); });
   els.scopeSelBtn.addEventListener('click', function () { setScope('selection'); });
   els.dirtyChip.addEventListener('click', function () {
@@ -2172,21 +2418,90 @@
   };
   var STATE_WORDS = ['default', 'hover', 'active', 'visited', 'disabled', 'focus', 'pressed', 'selected'];
 
-  function humanLabel(name) {
+  // "Components Button Primary Text" is a namespace read aloud. The label has
+  // to name the thing and the property: "Button primary — text colour".
+  var PROP_WORDS = {
+    fontsize: 'text size', 'font-size': 'text size', size: 'text size',
+    lineheight: 'line spacing', 'line-height': 'line spacing',
+    fontweight: 'text weight', 'font-weight': 'text weight', weight: 'text weight',
+    fontfamily: 'font', 'font-family': 'font', family: 'font',
+    color: 'text colour', fg: 'text colour', text: 'text colour',
+    bg: 'background', background: 'background', surface: 'background',
+    border: 'border', radius: 'corner radius', shadow: 'shadow',
+    padding: 'padding', gap: 'gap', margin: 'margin', filter: 'filter'
+  };
+  var DEVICE_WORDS = { mobile: 'mobile', desktop: 'desktop', m: null, s: null };
+
+  function labelParts(name) {
     var short = String(name)
       .replace(/^--(v|scheme)-/, '')
-      .replace(/^(palette|colors|colours|widgets|typography|type)-/, '');
+      .replace(/^(palette|colors|colours|widgets|typography|type|components)-/, '');
+    // camelCase in a token path is still two words.
+    short = short.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
     var parts = short.split('-').filter(Boolean);
-    // The state is shown as a tab on the row, so it does not belong in the
-    // label as well.
-    if (parts.length > 1 && STATE_WORDS.indexOf(parts[parts.length - 1]) !== -1) parts.pop();
-    var words = parts.map(function (w) {
-      if (GLOSS[w]) return GLOSS[w];
-      if (/^\d+$/.test(w)) return w;
-      return w.charAt(0).toUpperCase() + w.slice(1);
-    });
-    return words.join(' ');
+
+    var device = null;
+    var prop = null;
+    var state = null;
+
+    if (parts.length > 1 && STATE_WORDS.indexOf(parts[parts.length - 1]) !== -1) {
+      state = parts.pop();
+    }
+    // A property word is only a property when something else names the thing.
+    for (var i = parts.length - 1; i >= 1; i--) {
+      var joined = parts.slice(i).join('-');
+      if (PROP_WORDS[joined]) { prop = PROP_WORDS[joined]; parts = parts.slice(0, i); break; }
+      if (PROP_WORDS[parts[i]]) { prop = PROP_WORDS[parts[i]]; parts.splice(i, 1); break; }
+    }
+    for (var j = parts.length - 1; j >= 0; j--) {
+      if (Object.prototype.hasOwnProperty.call(DEVICE_WORDS, parts[j]) && DEVICE_WORDS[parts[j]]) {
+        device = DEVICE_WORDS[parts[j]];
+        parts.splice(j, 1);
+      }
+    }
+    var thing = parts.map(function (w) { return GLOSS[w] || w; }).join(' ');
+    return { thing: thing, prop: prop, device: device, state: state };
   }
+
+  function humanLabel(name) {
+    var p = labelParts(name);
+    var text = p.thing || p.prop || name;
+    if (p.thing && p.prop) text = p.thing + ' — ' + p.prop;
+    if (p.state && p.state !== 'default') text += ' (' + p.state + ')';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  // Mobile and desktop are the same row seen twice. The canvas already has a
+  // device switch; this makes the list follow it instead of doubling.
+  function deviceOf(name) { return labelParts(name).device; }
+
+  function deviceTwin(name) {
+    var d = deviceOf(name);
+    if (!d) return null;
+    var other = d === 'mobile' ? 'desktop' : 'mobile';
+    var twin = name.replace(new RegExp('(^|[-_])' + d + '([-_]|$)', 'i'), '$1' + other + '$2');
+    return twin !== name && Object.prototype.hasOwnProperty.call(state.current, twin) ? twin : null;
+  }
+
+  // Groups a designer recognises, in a fixed order, rather than whatever the
+  // token namespace happens to be called.
+  var KINDS = ['Colour', 'Text', 'Spacing', 'Shape & depth', 'Effects', 'Other'];
+
+  function kindOf(name) {
+    var n = String(name).toLowerCase();
+    var v = String(state.current[name] || '').trim();
+    if (/shadow/.test(n)) return 'Shape & depth';
+    if (/radius|corner|border|stroke|outline/.test(n)) return 'Shape & depth';
+    if (/font|type|weight|line-?height|leading|letter|family|text-size/.test(n)) return 'Text';
+    if (/padding|margin|gap|space|spacing|inset/.test(n)) return 'Spacing';
+    if (/filter|opacity|blur|transition|duration|ease/.test(n)) return 'Effects';
+    if (/^#|^rgb|^hsl/.test(v) || /^\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*$/.test(v)) return 'Colour';
+    if (/colou?r|fg|bg|background|surface|fill|ink|palette|neutral|brand|accent/.test(n)) return 'Colour';
+    if (/^-?[\d.]+(px|rem|em|%|vh|vw)$/.test(v)) return 'Spacing';
+    return 'Other';
+  }
+
+
 
   // A rough name for a colour, so "orange" and "green" are searchable terms.
   function colourWords(value) {
@@ -2232,6 +2547,8 @@
     els.scopeSelBtn.classList.toggle('active', state.scope === 'selection');
     els.scopeAllBtn.classList.toggle('active', state.scope === 'all');
 
+    els.statusChip.textContent = 'ⓘ ' + total + ' variables';
+
     var dirty = Object.keys(state.edits).length;
     els.dirtyChip.textContent = dirty + ' unsaved';
     els.dirtyChip.classList.toggle('hidden', !dirty);
@@ -2243,6 +2560,44 @@
 
   // A selection is a place on the page, so it is drawn as one. Every step is
   // clickable, which is also the answer to "how do I style the parent".
+  // The card answers "what am I editing" without the list having to. Its
+  // swatch is the element's own background, so it reads as a thumbnail of the
+  // thing rather than a generic icon.
+  function renderSelCard(el, direct) {
+    var win = el.ownerDocument.defaultView;
+    var cs = win.getComputedStyle(el);
+    var bg = cs.backgroundColor;
+    var opaque = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';
+    els.selCardSwatch.style.background = opaque ? bg : cs.color;
+    els.selCardSwatch.style.border = opaque ? '' : '2px solid ' + cs.color;
+    els.selCardName.textContent = friendlyName(el);
+    els.selCardSel.textContent = describeElement(el);
+    els.selCardSel.title = describeElement(el);
+    els.selCard.classList.add('on');
+  }
+
+  // What a person would call it, before what the markup calls it.
+  function friendlyName(el) {
+    var tag = el.tagName.toLowerCase();
+    var role = el.getAttribute('role');
+    var cls = (el.getAttribute('class') || '').toLowerCase();
+    var text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    var kind =
+      tag === 'button' || role === 'button' || /(^|[^a-z])(btn|button|cta)([^a-z]|$)/.test(cls) ? 'Button' :
+      tag === 'a' ? 'Link' :
+      /^h[1-6]$/.test(tag) ? 'Heading ' + tag.slice(1) :
+      tag === 'p' ? 'Paragraph' :
+      tag === 'img' ? 'Image' :
+      tag === 'input' || tag === 'select' || tag === 'textarea' ? 'Field' :
+      tag === 'nav' || /nav|menu/.test(cls) ? 'Navigation' :
+      tag === 'header' ? 'Header' :
+      tag === 'footer' ? 'Footer' :
+      /card/.test(cls) ? 'Card' :
+      'Element';
+    if (text && text.length <= 24 && kind !== 'Element') return kind + ' — “' + text + '”';
+    return kind;
+  }
+
   function renderCrumbs(el) {
     els.crumbs.innerHTML = '';
     if (!el) return;
@@ -2288,6 +2643,7 @@
   function renderGroups() {
     var filter = els.filterInput.value.trim().toLowerCase();
     refreshScopeBar();
+    els.emptyPick.classList.toggle('on', !state.highlight.length && !!Object.keys(state.current).length);
 
     var all = Object.keys(state.current).sort();
     // Scope first, then the text filter: narrowing to a selection and then
@@ -2342,7 +2698,11 @@
     var order = [];
     visible.forEach(function (name) {
       if (claimed[name]) return;
-      var fam = familyOf(name);
+      // The same row for the other device is not a second row. The canvas
+      // device switch decides which of the pair is on screen.
+      var d = deviceOf(name);
+      if (d && d !== state.device && deviceTwin(name)) return;
+      var fam = kindOf(name);
       if (!groups[fam]) {
         groups[fam] = [];
         order.push(fam);
@@ -2350,9 +2710,16 @@
       groups[fam].push(name);
     });
 
-    order.sort().forEach(function (fam) {
+    order.sort(function (a, b) { return KINDS.indexOf(a) - KINDS.indexOf(b); });
+    var openedOne = false;
+    var textRows = null;
+    order.forEach(function (fam) {
       var groupEl = document.createElement('div');
       groupEl.className = 'group';
+      // Only the first group is open: a designer scans headings, then opens
+      // the one they want, rather than scrolling past 185 rows to find it.
+      if (openedOne) groupEl.classList.add('collapsed');
+      openedOne = true;
 
       var header = document.createElement('div');
       header.className = 'group-header';
@@ -2370,9 +2737,12 @@
 
       groupEl.appendChild(rowsEl);
       els.groups.appendChild(groupEl);
+      if (fam === 'Text') textRows = rowsEl;
     });
 
-    if (styles.length) renderTypeStyles(styles, visible);
+    // Type specimens are text, so they belong in the Text group rather than
+    // reintroducing a namespace heading beside the intent ones.
+    if (styles.length) renderTypeStyles(styles, visible, textRows);
   }
 
   function memberNames(set) {
@@ -2384,21 +2754,26 @@
   // The specimen is the content here. Each style shows its sizes as rendered
   // lines of text; the variables that produce them are collapsed behind the
   // specimen and revealed on click, so the type leads and the tokens follow.
-  function renderTypeStyles(styles, visible) {
-    var groupEl = document.createElement('div');
-    groupEl.className = 'group';
+  function renderTypeStyles(styles, visible, into) {
+    var groupEl = null;
+    var rowsEl = into;
 
-    var header = document.createElement('div');
-    header.className = 'group-header';
-    header.innerHTML = '<span class=\'group-label\'>typography</span><span class=\'group-count\'>' + styles.length + '</span>';
-    header.addEventListener('click', function () {
-      groupEl.classList.toggle('collapsed');
-    });
-    groupEl.appendChild(header);
+    if (!rowsEl) {
+      groupEl = document.createElement('div');
+      groupEl.className = 'group';
 
-    var rowsEl = document.createElement('div');
-    rowsEl.className = 'group-rows';
-    rowsEl.style.padding = '0';
+      var header = document.createElement('div');
+      header.className = 'group-header';
+      header.innerHTML = '<span class=\'group-label\'>Text</span><span class=\'group-count\'>' + styles.length + '</span>';
+      header.addEventListener('click', function () {
+        groupEl.classList.toggle('collapsed');
+      });
+      groupEl.appendChild(header);
+
+      rowsEl = document.createElement('div');
+      rowsEl.className = 'group-rows';
+      rowsEl.style.padding = '0';
+    }
 
     styles.forEach(function (style) {
       var styleEl = document.createElement('div');
@@ -2475,8 +2850,12 @@
       rowsEl.appendChild(styleEl);
     });
 
-    groupEl.appendChild(rowsEl);
-    els.groups.appendChild(groupEl);
+    // Only when this section made its own group; otherwise the specimens have
+    // already been appended into the Text group's rows.
+    if (groupEl) {
+      groupEl.appendChild(rowsEl);
+      els.groups.appendChild(groupEl);
+    }
   }
 
   // One row control per variable, used by both the main list and the
@@ -2495,7 +2874,6 @@
 
     var label = document.createElement('div');
     label.className = 'name';
-    label.title = name;
 
     // The text lives in its own span so refreshing it cannot wipe the badge
     // beside it.
@@ -2511,6 +2889,16 @@
     warn.className = 'use warn hidden';
     warn.textContent = 'not loaded';
     label.appendChild(warn);
+
+    // The device is a chip, not a word buried in the label.
+    var dev = deviceOf(name);
+    if (dev && deviceTwin(name)) {
+      var chip = document.createElement('span');
+      chip.className = 'device-chip';
+      chip.textContent = dev;
+      chip.title = 'This value applies on ' + dev + '. Switch the viewport above to edit the other one.';
+      label.appendChild(chip);
+    }
 
     var loadBtn = document.createElement('button');
     loadBtn.className = 'loadfont hidden';
@@ -2631,6 +3019,10 @@
       // before the CSS existed - yet it is plainly the colour in use, and
       // calling that unused reads as the tool being wrong about the page.
       var shared = used === 0 ? sharing(value, name).length : 0;
+      // The count is developer telemetry: useful, but not worth a badge on
+      // every one of 185 rows. It moves to the row's tooltip.
+      row._nameText.title = name +
+        (used === null ? '' : ' — used in ' + (used === 0 ? (shared ? '0 rules, ' + shared + ' tokens share it' : 'no rules') : used + ' place' + (used === 1 ? '' : 's')));
       row._use.classList.toggle('hidden', used === null);
       row._use.classList.toggle('unused', used === 0 && !shared);
       row._use.textContent =
@@ -3338,6 +3730,7 @@
     });
     state.highlight = names;
     renderCrumbs(el);
+    renderSelCard(el, direct);
     // Picking something is a statement about scope, so the panel follows it
     // rather than leaving the full list on screen looking identical.
     state.scope = names.length ? 'selection' : 'all';
@@ -3350,6 +3743,7 @@
     els.inspector.classList.remove('open');
     state.selected = null;
     els.crumbs.innerHTML = '';
+    els.selCard.classList.remove('on');
     state.highlight = [];
     state.scope = 'all';
     renderGroups();
@@ -3871,12 +4265,22 @@
           : offWidth
             ? 'other breakpoints · overridden'
             : 'overridden';
-        toggle.textContent = '+' + quiet.length + ' not in force (' + reason + ')';
+        // "+1 not in force (overridden)" is a sentence about the cascade
+        // printed where a designer expects a property. A dot is a fact about
+        // this row; the sentence is what you get when you ask.
+        var why = reason === 'other breakpoints'
+          ? 'Set for another screen size — not in force here.'
+          : 'Another rule wins here — click to see why.';
+        var dot = document.createElement('span');
+        dot.className = 'override-dot';
+        dot.title = why;
+        toggle.textContent = '';
+        toggle.appendChild(dot);
+        toggle.appendChild(document.createTextNode(' ' + quiet.length + ' hidden'));
+        toggle.title = why;
         toggle.addEventListener('click', function () {
           var open = wrap.classList.toggle('show-folded');
-          toggle.textContent = open
-            ? 'hide ' + quiet.length + ' not in force'
-            : '+' + quiet.length + ' not in force (' + reason + ')';
+          toggle.lastChild.textContent = open ? ' hide' : ' ' + quiet.length + ' hidden';
         });
         // After the live ones, so what is actually painting the element reads
         // first.
