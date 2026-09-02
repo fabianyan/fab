@@ -643,9 +643,16 @@
   }
   .decl-usage.inactive { opacity: 0.5; font-style: italic; }
   /* Kept in the tree, out of the way until asked for. */
-  .inspect-var .decl-usage.folded { display: none; }
-  .inspect-var.show-folded .decl-usage.folded { display: flex; }
+  .inspect-var .decl-usage { display: none; }
+  .inspect-var.show-decls .decl-usage { display: flex; }
+  .inspect-var.show-decls .decl-usage.folded { display: none; }
+  .inspect-var.show-decls.show-folded .decl-usage.folded { display: flex; }
+  #editorPanel.show-tech .inspect-var .decl-usage { display: flex; }
   .decl-more {
+    background: none;
+    border: 0;
+    padding: 2px 0 0;
+    cursor: pointer;
     display: block;
     margin-left: 28px;
     padding: 1px 0;
@@ -927,6 +934,10 @@
     border-left: 3px solid var(--tool-accent);
   }
   #selCard.on { display: flex; }
+  #selCard .icon { flex: none; }
+  /* The identity of the selection is the card's job now, so the inspector
+     header no longer repeats it. */
+  #inspectorHead[hidden] { display: none; }
   #selCardSwatch {
     width: 30px; height: 30px; border-radius: 4px; flex: none;
     box-shadow: 0 0 0 1px rgba(255,255,255,.15);
@@ -1017,7 +1028,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v50</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v51</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <span id="loginFields">
       <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
@@ -1045,6 +1056,15 @@
         <button id="inspectBtn" class="secondary" title="Click an element in the preview to see which scheme variables style it. While this is on, clicking a link inspects it rather than loading it - shift-click to follow it instead.">Inspect</button>
       </div>
       <div id="pickHint">Click an element on the page.</div>
+      <div id="selCard">
+        <div id="selCardSwatch"></div>
+        <div id="selCardText">
+          <div id="selCardName"></div>
+          <div id="selCardSel"></div>
+        </div>
+        <button id="selCardUp" class="icon" title="Select the element around this one">↑</button>
+        <button id="selCardClear" class="icon" title="Deselect">✕</button>
+      </div>
       <div id="scopeBar">
         <span id="scopeToggle">
           <button id="scopeSelBtn" class="seg" disabled title="Only what styles the element you picked">This element <b id="scopeSelCount">0</b></button>
@@ -1061,21 +1081,13 @@
         <button id="loadAllFontsBtn" class="secondary hidden"></button>
       </div>
       <div id="inspector">
-        <div id="inspectorHead">
+        <div id="inspectorHead" hidden>
           <span id="inspectorTag"></span>
           <button id="inspectParentBtn" class="icon" title="Select parent element">↑</button>
           <button id="inspectCloseBtn" class="icon" title="Clear selection">✕</button>
         </div>
         <div id="crumbs" title="Where this element sits. Click a step to style that parent instead."></div>
         <div id="inspectorBody"></div>
-      </div>
-      <div id="selCard">
-        <div id="selCardSwatch"></div>
-        <div id="selCardText">
-          <div id="selCardName"></div>
-          <div id="selCardSel"></div>
-        </div>
-        <button id="selCardClear" class="icon" title="Deselect">✕</button>
       </div>
       <div id="emptyPick">
         <div class="big">⌖</div>
@@ -1349,6 +1361,9 @@
   els.loadAllFontsBtn.addEventListener('click', loadAllGoogleFonts);
   els.exportBtn.addEventListener('click', openExport);
   els.selCardClear.addEventListener('click', closeInspector);
+  document.getElementById('selCardUp').addEventListener('click', function () {
+    if (state.selected && state.selected.parentElement) selectElement(state.selected.parentElement);
+  });
   els.pickNowBtn.addEventListener('click', function () {
     if (!state.inspecting) els.inspectBtn.click();
   });
@@ -4274,13 +4289,15 @@
         var dot = document.createElement('span');
         dot.className = 'override-dot';
         dot.title = why;
+        // The dot alone. No count, no words: the row is about a colour, and
+        // the cascade is a footnote you open if you want it.
         toggle.textContent = '';
         toggle.appendChild(dot);
-        toggle.appendChild(document.createTextNode(' ' + quiet.length + ' hidden'));
         toggle.title = why;
+        toggle.setAttribute('aria-label', why);
         toggle.addEventListener('click', function () {
-          var open = wrap.classList.toggle('show-folded');
-          toggle.lastChild.textContent = open ? ' hide' : ' ' + quiet.length + ' hidden';
+          wrap.classList.toggle('show-decls');
+          wrap.classList.toggle('show-folded');
         });
         // After the live ones, so what is actually painting the element reads
         // first.
