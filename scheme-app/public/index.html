@@ -746,11 +746,21 @@
     margin-left: auto;
   }
   .chip.on { background: var(--app-accent, #6ea8fe); color: #06121f; }
+  .chip.hidden { display: none; }
 
   /* The trail from <body> down to what is selected, so "selection" is a place
      on the page rather than a word. Each step is clickable, which is how you
      style the parent instead. */
-  #crumbs { display: none; flex-wrap: wrap; gap: 2px; padding: 0 10px 8px; font-size: 11px; }
+  #crumbs {
+    display: none;
+    gap: 2px;
+    padding: 0 10px 8px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  #crumbs button { max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #inspector.open #crumbs { display: flex; }
   #crumbs button {
     background: none;
@@ -809,7 +819,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v48</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v49</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <button id="loginToggle" class="secondary">Basic Auth</button>
     <span id="loginFields">
@@ -2241,6 +2251,13 @@
       chain.unshift(node);
       if (node.tagName === 'BODY') break;
     }
+    // A framework page nests twenty wrappers deep. The useful part of the
+    // trail is the end of it, so the middle is dropped rather than wrapped.
+    var elided = 0;
+    if (chain.length > 5) {
+      elided = chain.length - 5;
+      chain = [chain[0]].concat(chain.slice(chain.length - 4));
+    }
     chain.forEach(function (node, i) {
       if (i) {
         var sep = document.createElement('span');
@@ -2248,8 +2265,16 @@
         sep.textContent = '›';
         els.crumbs.appendChild(sep);
       }
+      if (elided && i === 1) {
+        var gap = document.createElement('span');
+        gap.className = 'sep';
+        gap.textContent = '… ' + elided + ' more ›';
+        gap.title = elided + ' wrapper elements not shown';
+        els.crumbs.appendChild(gap);
+      }
       var btn = document.createElement('button');
-      btn.textContent = describeElement(node);
+      btn.textContent = shortLabel(node);
+      btn.title = describeElement(node);
       if (node === el) {
         btn.className = 'here';
         btn.disabled = true;
@@ -3339,6 +3364,35 @@
     return text;
   }
 
+  // A CSS-module class is mostly machine noise:
+  // "headline-module-scss-module__UtxFFa__root" is one readable word wrapped in
+  // a build hash. Printing them whole turned the breadcrumb into a paragraph
+  // and the selection label into a hash. This keeps the part a person named.
+  var GENERIC_LOCAL = /^(root|container|wrapper|inner|content|main|item|list|box)$/i;
+
+  // Split rather than match: the build hash in the middle can contain digits,
+  // underscores and hyphens, so any charset tight enough to be a "hash" also
+  // rejects half the real ones.
+  function shortClass(cls) {
+    var parts = cls.split('__');
+    if (parts.length < 2) return cls;
+    var base = parts[0].replace(/[-_]module([-_].*)?$/, '');
+    var local = parts[parts.length - 1];
+    if (!local || GENERIC_LOCAL.test(local)) return base || cls;
+    return local;
+  }
+
+  // What the element is, in as few characters as carry meaning.
+  function shortLabel(el) {
+    var tag = el.tagName.toLowerCase();
+    if (el.id && el.id.length <= 16) return tag + '#' + el.id;
+    var cls = (el.getAttribute('class') || '').trim();
+    if (!cls) return tag;
+    var first = shortClass(cls.split(/\s+/)[0]);
+    if (first.length > 16) first = first.slice(0, 15) + '…';
+    return tag + '.' + first;
+  }
+
   // Any captured variable, not only the --scheme-* ones: `font-family:
   // var(--font-base)` is exactly the declaration someone clicking a heading is
   // looking for. Names the capture did not return are dropped, since a
@@ -3632,9 +3686,8 @@
   }
 
   function renderInspector(el, direct, inherited, inside) {
-    var label = describeElement(el);
-    els.inspectorTag.textContent = label;
-    els.inspectorTag.title = label;
+    els.inspectorTag.textContent = shortLabel(el);
+    els.inspectorTag.title = describeElement(el);
     els.inspectorBody.innerHTML = '';
 
     // Anything already listed is skipped, so each variable gets exactly one
