@@ -1028,7 +1028,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v51</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v52</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <span id="loginFields">
       <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
@@ -2519,6 +2519,18 @@
 
 
   // A rough name for a colour, so "orange" and "green" are searchable terms.
+  // 0 is black, 1 is white. Used to decide what a swatch needs around it.
+  function relLuminance(hex) {
+    var m = /^#([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return 1;
+    var n = parseInt(m[1], 16);
+    var f = function (c) {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * f(n >> 16) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+  }
+
   function colourWords(value) {
     var m = /^#([0-9a-f]{6})$/i.exec(String(value || '').trim());
     if (!m) return '';
@@ -2553,12 +2565,17 @@
   function refreshScopeBar() {
     var total = Object.keys(state.current).length;
     var picked = state.highlight.length;
+    // Selection follows what is selected, not what it happens to theme. A
+    // wrapper with no scheme variables is still a selection: keying this off
+    // the variable count made climbing to a parent look like the selection had
+    // been thrown away, when the outline was still on the page.
+    var hasSelection = !!state.selected;
     // Normalises the scope without redrawing - renderGroups is mid-flight.
-    if (!picked && state.scope === 'selection') state.scope = 'all';
+    if (!hasSelection && state.scope === 'selection') state.scope = 'all';
 
     els.scopeAllCount.textContent = total;
     els.scopeSelCount.textContent = picked;
-    els.scopeSelBtn.disabled = !picked;
+    els.scopeSelBtn.disabled = !hasSelection;
     els.scopeSelBtn.classList.toggle('active', state.scope === 'selection');
     els.scopeAllBtn.classList.toggle('active', state.scope === 'all');
 
@@ -2658,7 +2675,7 @@
   function renderGroups() {
     var filter = els.filterInput.value.trim().toLowerCase();
     refreshScopeBar();
-    els.emptyPick.classList.toggle('on', !state.highlight.length && !!Object.keys(state.current).length);
+    els.emptyPick.classList.toggle('on', !state.selected && !!Object.keys(state.current).length);
 
     var all = Object.keys(state.current).sort();
     // Scope first, then the text filter: narrowing to a selection and then
@@ -2687,7 +2704,7 @@
       empty.textContent = all.length
         ? 'Nothing matches your search.'
         : (state.scope === 'selection'
-            ? 'Nothing in this selection.'
+            ? 'Nothing on this element is themed — use ↑ to check the one around it.'
             : (state.onlyDirty ? 'Nothing changed yet.' : 'Load a page to see its scheme variables.'));
       els.groups.appendChild(empty);
       return;
@@ -3123,6 +3140,13 @@
       fill.style.background = paint;
       swatch.style.display = '';
       var hex = toHexColor(paint);
+      // A near-black swatch on a near-black panel had a 13%-white ring, which
+      // is no edge at all: the colour was there and unfindable. The ring is
+      // now chosen against the swatch's own lightness, so black and white are
+      // both visible on either backdrop.
+      swatch.style.boxShadow = hex && relLuminance(hex) < 0.28
+        ? '0 0 0 1px rgba(255,255,255,0.55), 0 0 0 2px rgba(0,0,0,0.35)'
+        : '0 0 0 1px rgba(0,0,0,0.45), 0 0 0 2px rgba(255,255,255,0.22)';
       if (hex && !picker) {
         picker = document.createElement('input');
         picker.type = 'color';
@@ -3748,7 +3772,7 @@
     renderSelCard(el, direct);
     // Picking something is a statement about scope, so the panel follows it
     // rather than leaving the full list on screen looking identical.
-    state.scope = names.length ? 'selection' : 'all';
+    state.scope = 'selection';
     renderGroups();
 
     els.inspector.classList.add('open');
