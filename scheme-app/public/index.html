@@ -1028,7 +1028,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v52</span></h1>
+    <h1>Vulcan Scheme Editor <span id="buildTag">styles-v53</span></h1>
     <input id="urlInput" type="text" placeholder="example.com/page  (https:// optional)" />
     <span id="loginFields">
       <input id="userInput" class="authField" type="text" placeholder="username" autocomplete="off" />
@@ -3626,8 +3626,42 @@
     overlay.style.height = rect.height + 'px';
   }
 
+  // What is under the pointer that a person can actually see.
+  //
+  // Scripts are stripped from the captured body, so a menu the site opens and
+  // closes with JavaScript stays in whatever state the HTML shipped it. A
+  // mega-menu left at opacity:0 is invisible and still hit-testable, so every
+  // click on the page beneath it landed on a dropdown link instead - the panel
+  // kept selecting "Pragmatic Play" while the pointer was over the headline.
+  function effectiveOpacity(el, win) {
+    var o = 1;
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      var cs = win.getComputedStyle(n);
+      if (cs.visibility === 'hidden' || cs.display === 'none') return 0;
+      var step = parseFloat(cs.opacity);
+      if (!isNaN(step)) o *= step;
+      if (o <= 0.05) return 0;
+    }
+    return o;
+  }
+
+  function visibleTargetAt(e) {
+    var el = e.target;
+    var doc = el && el.ownerDocument;
+    var win = doc && doc.defaultView;
+    if (!win || !doc.elementsFromPoint) return el;
+    if (effectiveOpacity(el, win) > 0) return el;
+    var stack = doc.elementsFromPoint(e.clientX, e.clientY);
+    for (var i = 0; i < stack.length; i++) {
+      if (stack[i].id === OVERLAY_ID) continue;
+      if (effectiveOpacity(stack[i], win) > 0) return stack[i];
+    }
+    return el;
+  }
+
   function onPreviewHover(e) {
     if (!e.target || e.target.id === OVERLAY_ID) return;
+    e = { target: visibleTargetAt(e), clientX: e.clientX, clientY: e.clientY };
     outlineElement(e.target);
 
     // Same-document anchors say so rather than reading as dead elements: they
@@ -3650,6 +3684,10 @@
     e.preventDefault();
     e.stopPropagation();
 
+    // Resolved the same way as the selection: a link nobody can see is not the
+    // link they clicked.
+    var hit = visibleTargetAt(e);
+
     // A plain click on a link browses to it by capturing that URL.
     // Shift-click falls through to inspecting the link element itself.
     // With inspect on, a click inspects whatever it lands on, links included.
@@ -3661,7 +3699,7 @@
     var navigating = state.inspecting ? e.shiftKey : !e.shiftKey;
 
     if (navigating) {
-      var href = linkTargetOf(e.target);
+      var href = linkTargetOf(hit);
       if (href) {
         loadPage(href);
         return;
@@ -3669,13 +3707,13 @@
 
       // An anchor within this page still moves the preview, since the default
       // scroll was suppressed above.
-      var anchor = fragmentTargetOf(e.target);
+      var anchor = fragmentTargetOf(hit);
       if (anchor && anchor.scrollIntoView) {
         anchor.scrollIntoView({ block: 'start' });
       }
     }
 
-    if (state.inspecting) selectElement(e.target);
+    if (state.inspecting) selectElement(hit);
   }
 
   // Resolves an anchor's href against the captured page's URL, and only for
